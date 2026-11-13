@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Garage</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Garage">
+<meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1219" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: app a colonna singola (max 560px), barra delle sezioni fissa in basso, moduli in un foglio a schermo intero */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --ink:#131925; --muted:#5b6577; --line:#d9dfe8; --soft:#e5eaf2;
+  --accent:#0f7466; --accent-ink:#ffffff; --accent-soft:#d8efe9;
+  --bar:#b9cfe0; --price:#c98a1b; --bad:#c2412d; --warn:#a86d12; --good:#1d7f55;
+  --f-display:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1219; --surface:#161c26; --ink:#e7ebf2; --muted:#97a1b4; --line:#273041; --soft:#1e2532;
+  --accent:#4fd1b8; --accent-ink:#0e1219; --accent-soft:#16332f;
+  --bar:#33465c; --price:#e7ae4a; --bad:#ff8f78; --warn:#f0b45a; --good:#5fd39a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1219; --surface:#161c26; --ink:#e7ebf2; --muted:#97a1b4; --line:#273041; --soft:#1e2532;
+  --accent:#4fd1b8; --accent-ink:#0e1219; --accent-soft:#16332f;
+  --bar:#33465c; --price:#e7ae4a; --bad:#ff8f78; --warn:#f0b45a; --good:#5fd39a; color-scheme:dark}
+
+html{-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+.app{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px calc(100px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+[hidden]{display:none !important}
+
+/* header */
+.top{display:flex;align-items:center;gap:12px}
+.veh{flex:1;min-width:0;display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:4px 0;text-align:left}
+.avatar{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font-family:var(--f-display);font-weight:700;font-size:18px;flex:none}
+.veh b{display:block;font-family:var(--f-display);font-size:20px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.veh small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.veh .chev{color:var(--muted);flex:none}
+.iconbtn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none;padding:0}
+.iconbtn svg{width:22px;height:22px}
+.iconbtn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.view{display:flex;flex-direction:column;gap:18px}
+h2{font-family:var(--f-display);font-weight:600;font-size:22px;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0}
+.group{display:flex;flex-direction:column;gap:10px}
+.hint{color:var(--muted);font-size:13px;margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+
+/* segmented */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--soft);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:8px 4px;font-weight:600;color:var(--muted);font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+/* hero numbers */
+.hero{display:flex;flex-direction:column;gap:2px}
+.hero .big{font-family:var(--f-num);font-size:40px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.hero .big small{font-size:18px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:4px}
+.hero .sub{font-family:var(--f-num);color:var(--muted);font-size:17px}
+.facts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 16px;margin-top:10px}
+.facts div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:5px 0;font-size:14px}
+.facts span{color:var(--muted)}
+.facts b{font-family:var(--f-num);font-weight:500;white-space:nowrap}
+
+/* cost table */
+.costs{display:grid;grid-template-columns:repeat(3,1fr);gap:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.costs > div{padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.costs > div + div{border-left:1px solid var(--line)}
+.costs .h{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--line);padding-bottom:6px}
+.costs .v{font-family:var(--f-num);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.costs .v.main{font-size:16px;font-weight:600}
+.costs .tot{background:var(--accent-soft)}
+
+/* chart */
+.chart{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 0 8px;overflow:hidden;touch-action:pan-y}
+.chart svg{display:block;width:100%}
+.chart .lbl{font:600 11px var(--f-body);fill:var(--muted)}
+.chart .ax{font:500 10.5px var(--f-num);fill:var(--muted)}
+.chart .foot{display:flex;justify-content:space-between;padding:4px 12px 0;font-family:var(--f-num);font-size:11.5px;color:var(--muted);line-height:1.3}
+.chart .foot span:last-child{text-align:right}
+.tip{position:absolute;top:8px;background:var(--ink);color:var(--bg);border-radius:10px;padding:6px 10px;font-size:12.5px;line-height:1.35;pointer-events:none;white-space:nowrap;font-family:var(--f-num)}
+.tip b{font-family:var(--f-body)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding:0 12px}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+/* list rows */
+.ledger{background:var(--surface);border-radius:14px;border:1px solid var(--line);overflow:hidden}
+.row{display:grid;grid-template-columns:1fr auto;gap:4px 12px;width:100%;text-align:left;border:0;background:transparent;padding:12px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row b{font-weight:600}
+.row .l{min-width:0}
+.row .l small,.row .r small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .r b{font-weight:600}
+.row .l b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .mid{font-family:var(--f-num);color:var(--muted);font-size:13px;text-align:right}
+.row.fuel{grid-template-columns:1fr auto auto}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--soft);color:var(--muted);vertical-align:2px;margin-left:6px;font-family:var(--f-body)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.rem{background:var(--soft)}
+.rem .row{grid-template-columns:auto 1fr auto;align-items:center}
+.state{width:12px;height:12px;border-radius:50%;background:var(--line)}
+.state.scaduto{background:var(--bad)}
+.state.presto{background:var(--warn)}
+.txt-bad{color:var(--bad) !important}
+.txt-warn{color:var(--warn) !important}
+.banner{display:flex;gap:10px;align-items:center;border:1px solid var(--bad);color:var(--ink);background:var(--surface);border-radius:12px;padding:10px 12px;text-decoration:none;font-size:14px}
+.banner .state{flex:none}
+.empty{text-align:center;color:var(--muted);padding:28px 16px;font-size:14px}
+.search{font-size:16px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;width:100%;box-sizing:border-box}
+
+/* forms */
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field.full{grid-column:1/-1}
+.field label{font-size:12.5px;color:var(--muted);font-weight:500;display:flex;justify-content:space-between;gap:6px}
+.field label em{font-style:normal;color:var(--accent);font-family:var(--f-num);font-size:12px;white-space:nowrap}
+.input{font-size:16px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px;width:100%;min-width:0;box-sizing:border-box;-webkit-appearance:none;appearance:none}
+select.input{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+input[type="date"].input{min-height:44px}
+.input:focus{border-color:var(--accent);outline:none}
+.input.numin{font-family:var(--f-num);font-size:18px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--muted)}
+.check input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--accent);flex:none}
+.colors{display:flex;gap:10px;flex-wrap:wrap}
+.colors button{width:34px;height:34px;border-radius:50%;border:3px solid transparent}
+.colors button[aria-pressed="true"]{border-color:var(--ink)}
+
+.btn{border:0;border-radius:12px;padding:13px 16px;font-weight:600;font-size:16px}
+.btn-primary{background:var(--accent);color:var(--accent-ink);width:100%}
+.btn-ghost{background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:15px;padding:11px 14px}
+.btn-danger{background:transparent;border:1px solid var(--bad);color:var(--bad);font-size:15px;padding:11px 14px}
+.btn-danger.armed{background:var(--bad);color:var(--surface)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions .btn{flex:1}
+.stack{display:flex;flex-direction:column;gap:10px}
+
+/* sheet (dialog a schermo intero) */
+dialog#sheet{border:0;padding:0;margin:0;width:100%;max-width:100%;height:100%;max-height:100%;background:var(--bg);color:var(--ink)}
+dialog#sheet::backdrop{background:rgba(0,0,0,.4)}
+.sheet-in{max-width:560px;margin:0 auto;min-height:100%;box-sizing:border-box;padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(30px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:18px}
+.sheet-h{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:2}
+.sheet-h h2{text-align:center;font-size:18px}
+.summary{display:flex;flex-direction:column;gap:4px}
+.summary .big{font-family:var(--f-num);font-size:30px;font-weight:600;letter-spacing:-.02em}
+.summary .sub{color:var(--accent);font-weight:600}
+.kv{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.kv div{display:grid;grid-template-columns:120px 1fr;gap:12px;padding:11px 14px;border-top:1px solid var(--line)}
+.kv div:first-child{border-top:0}
+.kv span{color:var(--muted);font-size:13.5px;text-align:right}
+.kv b{font-weight:500;font-family:var(--f-num)}
+.kv small{display:block;color:var(--muted);font-size:12.5px;font-family:var(--f-body)}
+
+/* tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs a{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 2px 10px;font-size:11.5px;color:var(--muted);text-decoration:none;font-weight:500}
+.tabs a svg{width:23px;height:23px}
+.tabs a[aria-current="page"]{color:var(--accent)}
+.badge{position:absolute;top:4px;left:calc(50% + 6px);background:var(--bad);color:#fff;font-size:10.5px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:grid;place-items:center;padding:0 4px;box-sizing:border-box}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:1000;max-width:calc(100% - 32px);text-align:center}
+.welcome{display:flex;flex-direction:column;gap:16px;padding-top:30px}
+.welcome .logo{width:64px;height:64px;border-radius:18px}
+.welcome h1{font-family:var(--f-display);font-size:32px;margin:0;letter-spacing:-.02em}
+.welcome p{margin:0;color:var(--muted)}
+@media (max-width:370px){.hero .big{font-size:34px}.costs .v{font-size:12.5px}.costs .v.main{font-size:14px}.kv div{grid-template-columns:96px 1fr}}
+</style>
+</head>
+<body>
+<main class="app">
+  <section id="v-welcome" class="welcome" hidden>
+    <img class="logo" src="icon-192.png" alt="">
+    <h1>Garage</h1>
+    <p>Tieni il conto di rifornimenti, consumi, manutenzioni e viaggi delle tue auto. I dati restano sul telefono.</p>
+    <button class="btn btn-primary" id="wAdd" type="button">Aggiungi la prima auto</button>
+    <button class="btn btn-ghost" id="wImport" type="button">Ripristina un backup</button>
+    <button class="btn btn-ghost" id="wDemo" type="button">Prova con dati di esempio</button>
+  </section>
+
+  <header class="top" id="topbar" hidden>
+    <button class="veh" id="vehBtn" type="button" aria-label="Cambia veicolo">
+      <span class="avatar" id="vehAv"></span>
+      <span style="min-width:0"><b id="vehName"></b><small id="vehSub"></small></span>
+      <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <button class="iconbtn primary" id="addBtn" type="button" aria-label="Aggiungi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  </header>
+
+  <section id="v-stat" class="view" hidden></section>
+  <section id="v-carb" class="view" hidden></section>
+  <section id="v-spese" class="view" hidden></section>
+  <section id="v-viaggi" class="view" hidden></section>
+  <section id="v-altro" class="view" hidden></section>
+</main>
+
+<nav class="tabs" aria-label="Sezioni" hidden><div class="in">
+  <a href="#stat" data-tab="stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M7 16v-4M11 16V8M15 16v-6M19 16V5"/></svg>Statistiche</a>
+  <a href="#carb" data-tab="carb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15M3 20h12M4 10h10"/><path d="M14 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg>Carburante</a>
+  <a href="#spese" data-tab="spese"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Spese<span class="badge" id="badge" hidden></span></a>
+  <a href="#viaggi" data-tab="viaggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3 5 21M15 3l4 18M12 5v2M12 11v2M12 17v2"/></svg>Viaggi</a>
+  <a href="#altro" data-tab="altro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>Altro</a>
+</div></nav>
+
+<dialog id="sheet"><div class="sheet-in">
+  <div class="sheet-h">
+    <button class="iconbtn" id="shClose" type="button" aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <h2 id="shTitle"></h2>
+    <button class="iconbtn primary" id="shSave" type="button" aria-label="Salva"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></button>
+  </div>
+  <div id="shBody" class="stack" style="gap:18px"></div>
+</div></dialog>
+<input type="file" id="fileIn" accept=".csv,.json,text/csv,application/json,text/plain" hidden>
+<div id="toast" role="status" hidden></div>
+
+<script>
+/* ================= utilità ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NF = {};
+const fmt = (v, d = 0, dm = d) => { if (v == null || !isFinite(v)) return '—'; const k = d + '-' + dm; return (NF[k] || (NF[k] = new Intl.NumberFormat('it-IT', {minimumFractionDigits:d, maximumFractionDigits:dm}))).format(v); };
+const eur = v => fmt(v, 2) + ' €';
+const pad = n => String(n).padStart(2, '0');
+const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = () => isoDay(new Date());
+const toD = iso => { const [y, m, d] = String(iso).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+const days = (a, b) => Math.round((toD(b) - toD(a)) / 864e5);
+const addMonths = (iso, m) => { const d = toD(iso); const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + m); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); return isoDay(d); };
+const addDays = (iso, n) => { const d = toD(iso); d.setDate(d.getDate() + n); return isoDay(d); };
+const fDate = iso => iso ? toD(iso).toLocaleDateString('it-IT', {day:'numeric', month:'short', year:'numeric'}) : '—';
+const fShort = iso => iso ? toD(iso).toLocaleDateString('it-IT', {day:'numeric', month:'short', year:'2-digit'}) : '—';
+function durata(n){
+  n = Math.abs(n);
+  if (n < 1) return 'oggi';
+  if (n < 14) return n === 1 ? '1 giorno' : n + ' giorni';
+  if (n < 60) return Math.round(n / 7) + ' settimane';
+  if (n < 730) { const m = Math.round(n / 30.44); return m === 1 ? '1 mese' : m + ' mesi'; }
+  return fmt(n / 365.25, 0, 1) + ' anni';
+}
+const fa = iso => { const n = days(iso, today()); return n === 0 ? 'oggi' : n > 0 ? durata(n) + ' fa' : 'tra ' + durata(n); };
+// numeri scritti all'italiana: "1.234,5" oppure "1234.5"; per i km i punti sono sempre separatori delle migliaia
+function num(s, intero){
+  s = String(s ?? '').trim().replace(/\s|€/g, '');
+  if (!s) return NaN;
+  if (intero) s = s.replace(/[.,](?=\d{3}(\D|$))/g, '').replace(',', '.');
+  else if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const v = parseFloat(s); return isFinite(v) ? v : NaN;
+}
+const inNum = (v, d = 3) => v == null || !isFinite(v) ? '' : String(Math.round(v * 10 ** d) / 10 ** d).replace('.', ',');
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+let toastT;
+function flash(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); }
+
+/* ================= dati ================= */
+const COLORI = ['#0f7466', '#2546c4', '#c2412d', '#c98a1b', '#7b3fb8', '#38424f'];
+const CARBURANTI = ['Benzina', 'Diesel', 'GPL', 'Metano', 'Ibrida', 'Elettrica'];
+const CATEGORIE = [
+  {id:'manutenzione', n:'Tagliando e manutenzione', g:'serv'}, {id:'gomme', n:'Gomme', g:'serv'}, {id:'riparazioni', n:'Riparazioni', g:'serv'},
+  {id:'revisione', n:'Revisione', g:'serv'}, {id:'assicurazione', n:'Assicurazione', g:'fisse'}, {id:'bollo', n:'Bollo', g:'fisse'},
+  {id:'pedaggi', n:'Pedaggi e parcheggi', g:'uso'}, {id:'lavaggio', n:'Lavaggio', g:'uso'}, {id:'multe', n:'Multe', g:'uso'},
+  {id:'accessori', n:'Accessori', g:'uso'}, {id:'altro', n:'Altro', g:'uso'}
+];
+const GRUPPI = {serv:'Manutenzione', fisse:'Costi fissi', uso:'Uso e altro'};
+const catInfo = id => CATEGORIE.find(c => c.id === id) || CATEGORIE[CATEGORIE.length - 1];
+const TIPI_VIAGGIO = ['Vacanza', 'Lavoro', 'Periodo', 'Altro'];
+const unita = v => v && v.carburante === 'Elettrica' ? 'kWh' : v && v.carburante === 'Metano' ? 'kg' : 'l';
+
+const KEY = 'garage_v1';
+const vuoto = () => ({veicoli:[], attivo:null, rif:[], spese:[], viaggi:[], tema:'auto'});
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || vuoto(); } catch(e){ S = vuoto(); }
+S = {...vuoto(), ...S};
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){ flash('Memoria piena: esporta un backup'); } }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+const V = () => S.veicoli.find(v => v.id === S.attivo) || S.veicoli[0];
+const rifDi = vid => S.rif.filter(r => r.v === vid).sort((a, b) => a.km - b.km || a.data.localeCompare(b.data));
+const speseDi = vid => S.spese.filter(r => r.v === vid).sort((a, b) => b.data.localeCompare(a.data) || (b.km || 0) - (a.km || 0));
+const viaggiDi = vid => S.viaggi.filter(r => r.v === vid).sort((a, b) => b.dal.localeCompare(a.dal));
+function kmAttuali(vid){
+  let m = 0;
+  S.rif.forEach(r => { if (r.v === vid && r.km > m) m = r.km; });
+  S.spese.forEach(r => { if (r.v === vid && r.km > m) m = r.km; });
+  S.viaggi.forEach(r => { if (r.v === vid) m = Math.max(m, r.km0 || 0, r.km1 || 0); });
+  return m;
+}
+
+/* Consumo "da pieno a pieno": tra due pieni si sommano i litri di tutti i rifornimenti (anche parziali).
+   Se un rifornimento è segnato come "precedente saltato", quel tratto non si può calcolare. */
+function segmenti(fuel){
+  const seg = {}; let last = -1, litri = 0, costo = 0, rotto = false;
+  fuel.forEach((f, i) => {
+    f._dist = i > 0 ? f.km - fuel[i - 1].km : null;
+    if (f.mancato) rotto = true;
+    litri += f.litri || 0; costo += f.totale || 0;
+    if (f.pieno){
+      if (last >= 0 && !rotto){
+        const dist = f.km - fuel[last].km;
+        if (dist > 0 && litri > 0) seg[f.id] = {dist, litri, costo, l100: litri / dist * 100, giorni: days(fuel[last].data, f.data)};
+      }
+      last = i; litri = 0; costo = 0; rotto = false;
+    }
+  });
+  return seg;
+}
+
+const PERIODI = [['tutto', 'Tutto'], ['2a', '2A'], ['1a', '1A'], ['6m', '6M'], ['3m', '3M']];
+function inizioPeriodo(p){
+  const t = today();
+  return {tutto:'0000-01-01', '2a':addMonths(t, -24), '1a':addMonths(t, -12), '6m':addMonths(t, -6), '3m':addMonths(t, -3)}[p] || '0000-01-01';
+}
+
+function statistiche(vid, da, a = '9999-12-31'){
+  const fuelAll = rifDi(vid), seg = segmenti(fuelAll);
+  const dentro = d => d >= da && d <= a;
+  const fuel = fuelAll.filter(f => dentro(f.data));
+  const segs = fuel.map(f => seg[f.id]).filter(Boolean);
+  const spese = S.spese.filter(s => s.v === vid && dentro(s.data));
+  // punti (data, km) di tutto ciò che ha un contachilometri
+  const punti = [];
+  S.rif.forEach(r => r.v === vid && r.km > 0 && punti.push([r.data, r.km]));
+  S.spese.forEach(r => r.v === vid && r.km > 0 && punti.push([r.data, r.km]));
+  S.viaggi.forEach(r => { if (r.v !== vid) return; if (r.km0 > 0) punti.push([r.dal, r.km0]); if (r.al && r.km1 > 0) punti.push([r.al, r.km1]); });
+  punti.sort((x, y) => x[0].localeCompare(y[0]) || x[1] - y[1]);
+  const pIn = punti.filter(p => dentro(p[0])), prima = punti.filter(p => p[0] < da);
+  let km = 0, startDate = null;
+  if (pIn.length){
+    const maxIn = Math.max(...pIn.map(p => p[1]));
+    const base = prima.length ? Math.max(...prima.map(p => p[1])) : Math.min(...pIn.map(p => p[1]));
+    km = Math.max(0, maxIn - base);
+  }
+  const tuttiData = [...fuel.map(f => f.data), ...spese.map(s => s.data), ...pIn.map(p => p[0])].sort();
+  if (prima.length || S.spese.some(s => s.v === vid && s.data < da) || fuelAll.some(f => f.data < da)) startDate = da;
+  else startDate = tuttiData[0] || today();
+  const fine = a < today() ? a : today();
+  const giorni = Math.max(1, days(startDate, fine));
+  const costoCarb = fuel.reduce((s, f) => s + (f.totale || 0), 0);
+  const litri = fuel.reduce((s, f) => s + (f.litri || 0), 0);
+  const costoSpese = spese.reduce((s, x) => s + (x.importo || 0), 0);
+  const perGruppo = {serv:0, fisse:0, uso:0};
+  spese.forEach(x => perGruppo[catInfo(x.cat).g] += x.importo || 0);
+  const sd = segs.reduce((s, x) => s + x.dist, 0), sl = segs.reduce((s, x) => s + x.litri, 0);
+  const l100 = sd > 0 ? sl / sd * 100 : null;
+  const l100s = segs.map(s => s.l100);
+  const prezzi = fuel.filter(f => f.prezzo > 0).map(f => f.prezzo);
+  return {
+    fuel, fuelAll, seg, segs, spese, km, giorni, costoCarb, litri, costoSpese, perGruppo, l100,
+    kml: l100 ? 100 / l100 : null,
+    prezzoMedio: litri > 0 ? costoCarb / litri : null,
+    kmPieno: segs.length ? sd / segs.length : null,
+    maxPieno: segs.length ? Math.max(...segs.map(s => s.dist)) : null,
+    best: l100s.length ? Math.min(...l100s) : null, worst: l100s.length ? Math.max(...l100s) : null,
+    pMin: prezzi.length ? Math.min(...prezzi) : null, pMax: prezzi.length ? Math.max(...prezzi) : null,
+    kmGiorno: km / giorni
+  };
+}
+
+/* Promemoria: per ogni voce di spesa con "ripeti", conta l'ultima registrazione con quel nome */
+function promemoria(vid){
+  const ultime = {};
+  speseDi(vid).forEach(s => { const k = s.titolo.trim().toLowerCase(); if (!ultime[k]) ultime[k] = s; });
+  const km = kmAttuali(vid);
+  const st = statistiche(vid, addMonths(today(), -12));
+  const kmG = st.kmGiorno > 0 ? st.kmGiorno : null;
+  const out = [];
+  Object.values(ultime).forEach(s => {
+    if (!s.rip || !(s.rip.mesi > 0 || s.rip.km > 0)) return;
+    const dataDue = s.rip.mesi > 0 ? addMonths(s.data, s.rip.mesi) : null;
+    const kmDue = s.rip.km > 0 && s.km > 0 ? s.km + s.rip.km : null;
+    const ggData = dataDue ? days(today(), dataDue) : null;
+    const kmMancano = kmDue ? kmDue - km : null;
+    const ggKm = kmMancano != null && kmG ? Math.round(kmMancano / kmG) : null;
+    const scaduto = (ggData != null && ggData <= 0) || (kmMancano != null && kmMancano <= 0);
+    const gg = [ggData, ggKm].filter(x => x != null);
+    const minGg = gg.length ? Math.min(...gg) : null;
+    const presto = !scaduto && ((minGg != null && minGg <= 30) || (kmMancano != null && kmMancano <= 1000));
+    const parti = [];
+    if (scaduto){
+      if (kmMancano != null && kmMancano <= 0) parti.push(fmt(-kmMancano) + ' km');
+      if (ggData != null && ggData <= 0) parti.push(durata(-ggData));
+    } else {
+      if (kmMancano != null) parti.push(fmt(kmMancano) + ' km');
+      if (ggData != null) parti.push(durata(ggData));
+    }
+    const quando = dataDue && (ggKm == null || ggData <= ggKm) ? {data:dataDue, stima:false} : ggKm != null ? {data:addDays(today(), ggKm), stima:true} : {data:dataDue, stima:false};
+    out.push({s, dataDue, kmDue, scaduto, presto, testo:(scaduto ? 'Scaduto da ' : 'Tra ') + parti.join(', '), quando, ord: scaduto ? -1e9 + (minGg ?? 0) : (minGg ?? 1e6)});
+  });
+  return out.sort((a, b) => a.ord - b.ord);
+}
+
+/* ================= navigazione ================= */
+const VIEWS = ['stat', 'carb', 'spese', 'viaggi', 'altro'];
+let tab = 'stat';
+function show(v){
+  const has = S.veicoli.length > 0;
+  $('#v-welcome').hidden = has; $('#topbar').hidden = !has; $('.tabs').hidden = !has;
+  if (!VIEWS.includes(v)) v = 'stat';
+  tab = v;
+  VIEWS.forEach(x => { $('#v-' + x).hidden = !has || x !== v; document.querySelector(`[data-tab="${x}"]`).setAttribute('aria-current', x === v ? 'page' : 'false'); });
+  if (has) render();
+}
+window.addEventListener('hashchange', () => { show(location.hash.slice(1)); window.scrollTo(0, 0); });
+
+/* ================= foglio (moduli e dettagli) ================= */
+const sheet = $('#sheet'); let sheetSave = null;
+function openSheet(title, html, onSave, saveLabel){
+  $('#shTitle').textContent = title; $('#shBody').innerHTML = html; sheetSave = onSave;
+  $('#shSave').hidden = !onSave;
+  if (!sheet.open) sheet.showModal();
+  sheet.scrollTop = 0;
+}
+function closeSheet(){ if (sheet.open) sheet.close(); sheetSave = null; }
+$('#shClose').onclick = closeSheet;
+$('#shSave').onclick = () => { if (sheetSave && sheetSave() !== false){ closeSheet(); render(); } };
+sheet.addEventListener('cancel', () => sheetSave = null);
+function armDelete(btn, label, fn){
+  btn.onclick = () => {
+    if (!btn.classList.contains('armed')){ btn.classList.add('armed'); btn.textContent = label; return; }
+    fn(); closeSheet(); render();
+  };
+}
+const field = (id, label, value = '', opt = {}) => `<div class="field${opt.full ? ' full' : ''}"><label for="${id}">${esc(label)}<em id="${id}-h">${opt.hint || ''}</em></label><input class="input${opt.num ? ' numin' : ''}" id="${id}" ${opt.type ? `type="${opt.type}"` : ''} ${opt.num ? `inputmode="${opt.int ? 'numeric' : 'decimal'}"` : ''} value="${esc(value)}" placeholder="${esc(opt.ph || '')}" ${opt.list ? `list="${opt.list}"` : ''} autocomplete="off"></div>`;
+const select = (id, label, options, value, full) => `<div class="field${full ? ' full' : ''}"><label for="${id}">${esc(label)}</label><select class="input" id="${id}">${options.map(o => { const [v, t] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(t)}</option>`; }).join('')}</select></div>`;
+const val = id => $('#' + id).value.trim();
+
+/* ---------- rifornimento ---------- */
+function formRif(r){
+  const v = V(), u = unita(v), fuel = rifDi(v.id);
+  const nuovo = !r;
+  const prev = fuel.filter(f => !r || f.id !== r.id);
+  const ultimo = prev[prev.length - 1];
+  r = r || {id:newId(), v:v.id, data:today(), km:null, litri:null, prezzo:ultimo ? ultimo.prezzo : null, totale:null, pieno:true, mancato:false, luogo:'', nota:''};
+  const seg = segmenti(fuel)[r.id];
+  let top = '';
+  if (!nuovo){
+    const vicini = fuel.indexOf(fuel.find(f => f.id === r.id));
+    top = `<div class="summary"><div class="big">${seg ? fmt(seg.l100, 2) + ' ' + u + '/100 km' : r.pieno ? 'Primo pieno' : 'Parziale'}</div>
+      <div class="sub">${esc(fDate(r.data))} · ${fa(r.data)}</div></div>
+      <div class="kv">
+        ${seg ? `<div><span>tratto</span><b>${fmt(seg.dist)} km in ${durata(seg.giorni)}<small>${fmt(seg.dist / Math.max(1, seg.giorni))} km/giorno · ${fmt(100 / seg.l100, 2)} km/${u}</small></b></div>
+        <div><span>costo</span><b>${fmt(seg.costo / seg.dist * 100, 2)} €/100 km</b></div>` : ''}
+        ${vicini > 0 ? `<div><span>dal precedente</span><b>${fmt(r.km - fuel[vicini - 1].km)} km</b></div>` : ''}
+      </div><h3>Modifica</h3>`;
+  }
+  const html = `${top}
+    <div class="fields">
+      ${field('fData', 'Data', r.data, {type:'date'})}
+      ${field('fKm', 'Contachilometri', r.km != null ? r.km : '', {num:1, int:1, ph: ultimo ? 'ultimo ' + fmt(ultimo.km) : 'km'})}
+      ${field('fLitri', u === 'l' ? 'Litri' : u, inNum(r.litri), {num:1, ph:'0,00'})}
+      ${field('fPrezzo', '€/' + (u === 'l' ? 'litro' : u), inNum(r.prezzo), {num:1, ph:'0,000'})}
+      ${field('fTot', 'Totale €', inNum(r.totale, 2), {num:1, ph:'0,00', full:1})}
+    </div>
+    <div class="seg" id="fPieno"><button type="button" data-p="1" aria-pressed="${r.pieno}">Pieno</button><button type="button" data-p="0" aria-pressed="${!r.pieno}">Parziale</button></div>
+    <label class="check"><input type="checkbox" id="fMancato" ${r.mancato ? 'checked' : ''}><span>Ho saltato il rifornimento precedente (non l'ho registrato): il consumo di questo tratto non verrà calcolato.</span></label>
+    <div class="fields">
+      ${field('fLuogo', 'Distributore / località', r.luogo, {full:1, list:'dlLuoghi', ph:'es. Q8 via Roma'})}
+      ${field('fNota', 'Nota', r.nota, {full:1})}
+    </div>
+    <datalist id="dlLuoghi">${[...new Set(S.rif.map(x => x.luogo).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    ${nuovo ? '' : '<button class="btn btn-danger" id="fDel" type="button">Elimina rifornimento</button>'}`;
+  let pieno = r.pieno;
+  openSheet(nuovo ? 'Nuovo rifornimento' : 'Rifornimento', html, () => {
+    const km = num(val('fKm'), true), litri = num(val('fLitri')), prezzo = num(val('fPrezzo')), tot = num(val('fTot'));
+    if (!val('fData')) { flash('Manca la data'); return false; }
+    if (!(km > 0)) { flash('Manca il contachilometri'); return false; }
+    if (!(litri > 0) || !(tot > 0)) { flash('Servono quantità e totale (o il prezzo)'); return false; }
+    Object.assign(r, {data:val('fData'), km, litri, prezzo: prezzo > 0 ? prezzo : tot / litri, totale:tot, pieno, mancato:$('#fMancato').checked, luogo:val('fLuogo'), nota:val('fNota')});
+    if (nuovo) S.rif.push(r);
+    save(); flash(nuovo ? 'Rifornimento salvato' : 'Modifiche salvate');
+  });
+  // calcolo automatico: il campo toccato meno di recente tra litri, prezzo e totale viene ricalcolato
+  const ord = ['fLitri', 'fPrezzo', 'fTot'];
+  const ricalcola = id => {
+    ord.splice(ord.indexOf(id), 1); ord.push(id);
+    const L = num(val('fLitri')), P = num(val('fPrezzo')), T = num(val('fTot'));
+    const t = ord[0];
+    if (t === 'fLitri' && P > 0 && T > 0) $('#fLitri').value = inNum(T / P);
+    if (t === 'fPrezzo' && L > 0 && T > 0) $('#fPrezzo').value = inNum(T / L);
+    if (t === 'fTot' && L > 0 && P > 0) $('#fTot').value = inNum(L * P, 2);
+    anteprima();
+  };
+  const anteprima = () => {
+    const km = num(val('fKm'), true), L = num(val('fLitri'));
+    const bozza = {...r, km, litri:L, totale:num(val('fTot')), pieno, mancato:$('#fMancato').checked, data:val('fData') || today()};
+    const lista = [...prev, bozza].filter(f => f.km > 0).sort((a, b) => a.km - b.km || a.data.localeCompare(b.data));
+    const i = lista.indexOf(bozza);
+    $('#fKm-h').textContent = km > 0 && i > 0 ? '+' + fmt(km - lista[i - 1].km) + ' km' : '';
+    const sg = km > 0 && L > 0 ? segmenti(lista)[bozza.id] : null;
+    $('#fLitri-h').textContent = sg ? fmt(sg.l100, 2) + ' ' + u + '/100 km' : '';
+  };
+  ['fLitri', 'fPrezzo', 'fTot'].forEach(id => $('#' + id).addEventListener('input', () => ricalcola(id)));
+  $('#fKm').addEventListener('input', anteprima); $('#fMancato').addEventListener('change', anteprima);
+  document.querySelectorAll('#fPieno button').forEach(b => b.onclick = () => { pieno = b.dataset.p === '1'; document.querySelectorAll('#fPieno button').forEach(x => x.setAttribute('aria-pressed', x === b)); anteprima(); });
+  anteprima();
+  if (!nuovo) armDelete($('#fDel'), 'Tocca di nuovo per eliminare', () => { S.rif = S.rif.filter(x => x.id !== r.id); save(); flash('Rifornimento eliminato'); });
+}
+
+/* ---------- spesa ---------- */
+function formSpesa(s, preset){
+  const v = V(); const nuovo = !s;
+  s = s || {id:newId(), v:v.id, data:today(), km:kmAttuali(v.id) || null, titolo:'', cat:'manutenzione', importo:null, luogo:'', nota:'', rip:null, ...(preset || {})};
+  const titoli = [...new Set(S.spese.map(x => x.titolo).filter(Boolean))];
+  const correlate = nuovo ? [] : speseDi(v.id).filter(x => x.id !== s.id && x.titolo.trim().toLowerCase() === s.titolo.trim().toLowerCase());
+  const html = `
+    <div class="fields">
+      ${field('sTit', 'Descrizione', s.titolo, {full:1, list:'dlTitoli', ph:'es. Cambio olio'})}
+      ${select('sCat', 'Categoria', CATEGORIE.map(c => [c.id, c.n]), s.cat, true)}
+      ${field('sData', 'Data', s.data, {type:'date'})}
+      ${field('sKm', 'Contachilometri', s.km || '', {num:1, int:1, ph:'km'})}
+      ${field('sImp', 'Importo €', inNum(s.importo, 2), {num:1, ph:'0,00'})}
+      ${field('sLuogo', 'Officina / luogo', s.luogo, {list:'dlOff'})}
+      ${field('sNota', 'Nota', s.nota, {full:1})}
+    </div>
+    <div class="group"><h3>Promemoria</h3>
+      <p class="hint">Ti avviso quando è ora di rifarla: alla prima delle due scadenze.</p>
+      <div class="fields">
+        ${field('sMesi', 'Ripeti ogni (mesi)', s.rip && s.rip.mesi || '', {num:1, int:1, ph:'es. 12'})}
+        ${field('sRkm', 'oppure ogni (km)', s.rip && s.rip.km || '', {num:1, int:1, ph:'es. 15000'})}
+      </div>
+    </div>
+    <datalist id="dlTitoli">${titoli.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    <datalist id="dlOff">${[...new Set(S.spese.map(x => x.luogo).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    ${correlate.length ? `<div class="group"><h3>Volte precedenti</h3><div class="ledger">${correlate.slice(0, 6).map(x => `<div class="row"><div class="l"><b>${esc(fDate(x.data))}</b><small>${x.km ? fmt(x.km) + ' km' : ''}</small></div><div class="r">${eur(x.importo)}<small>${esc(x.luogo || '')}</small></div></div>`).join('')}</div></div>` : ''}
+    ${nuovo ? '' : '<button class="btn btn-danger" id="sDel" type="button">Elimina spesa</button>'}`;
+  openSheet(nuovo ? 'Nuova spesa' : 'Spesa', html, () => {
+    const titolo = val('sTit'), imp = num(val('sImp')), km = num(val('sKm'), true), mesi = num(val('sMesi'), true), rkm = num(val('sRkm'), true);
+    if (!titolo) { flash('Scrivi una descrizione'); return false; }
+    if (!val('sData')) { flash('Manca la data'); return false; }
+    if (rkm > 0 && !(km > 0)) { flash('Per il promemoria a km serve il contachilometri'); return false; }
+    Object.assign(s, {titolo, cat:val('sCat'), data:val('sData'), km: km > 0 ? km : null, importo: imp > 0 ? imp : 0, luogo:val('sLuogo'), nota:val('sNota'), rip: (mesi > 0 || rkm > 0) ? {mesi: mesi > 0 ? mesi : null, km: rkm > 0 ? rkm : null} : null});
+    if (nuovo) S.spese.push(s);
+    save(); flash(nuovo ? 'Spesa salvata' : 'Modifiche salvate');
+  });
+  // se scegli una descrizione già usata, propone categoria e promemoria dell'ultima volta
+  $('#sTit').addEventListener('change', () => {
+    if (!nuovo) return;
+    const prec = S.spese.filter(x => x.v === v.id && x.titolo.toLowerCase() === val('sTit').toLowerCase()).sort((a, b) => b.data.localeCompare(a.data))[0];
+    if (!prec) return;
+    $('#sCat').value = prec.cat;
+    if (prec.rip && !val('sMesi') && !val('sRkm')){ $('#sMesi').value = prec.rip.mesi || ''; $('#sRkm').value = prec.rip.km || ''; }
+    if (!val('sImp') && prec.importo) $('#sImp').value = inNum(prec.importo, 2);
+  });
+  if (!nuovo) armDelete($('#sDel'), 'Tocca di nuovo per eliminare', () => { S.spese = S.spese.filter(x => x.id !== s.id); save(); flash('Spesa eliminata'); });
+}
+
+function dettaglioPromemoria(p){
+  const s = p.s;
+  const html = `<div class="summary"><span class="hint" style="font-weight:600;color:var(--accent)">Promemoria</span><div class="big" style="font-family:var(--f-display)">${esc(s.titolo)}</div>
+    <div class="sub ${p.scaduto ? 'txt-bad' : p.presto ? 'txt-warn' : ''}">${esc(p.testo)}</div></div>
+    <div class="kv">
+      <div><span>ripeti</span><b>${[s.rip.mesi ? 'ogni ' + s.rip.mesi + ' mesi' : '', s.rip.km ? 'ogni ' + fmt(s.rip.km) + ' km' : ''].filter(Boolean).join(' o ')}</b></div>
+      ${p.dataDue ? `<div><span>scadenza</span><b>${fDate(p.dataDue)}<small>${fa(p.dataDue)}</small></b></div>` : ''}
+      ${p.kmDue ? `<div><span>a km</span><b>${fmt(p.kmDue)} km<small>ora sei a ${fmt(kmAttuali(s.v))} km${p.quando.stima ? ' · stimato ' + fDate(p.quando.data) : ''}</small></b></div>` : ''}
+      <div><span>ultima volta</span><b>${fDate(s.data)}<small>${s.km ? fmt(s.km) + ' km · ' : ''}${eur(s.importo)}</small></b></div>
+    </div>
+    <button class="btn btn-primary" id="pFatto" type="button">Segna come fatto</button>
+    <button class="btn btn-ghost" id="pOrig" type="button">Apri l'ultima spesa</button>
+    <button class="btn btn-danger" id="pStop" type="button">Non ricordarmelo più</button>`;
+  openSheet('Promemoria', html, null);
+  $('#pFatto').onclick = () => formSpesa(null, {titolo:s.titolo, cat:s.cat, importo:s.importo, luogo:s.luogo, rip:{...s.rip}});
+  $('#pOrig').onclick = () => formSpesa(s);
+  armDelete($('#pStop'), 'Tocca di nuovo per togliere il promemoria', () => { s.rip = null; save(); flash('Promemoria tolto'); });
+}
+
+/* ---------- viaggio ---------- */
+function formViaggio(t){
+  const v = V(); const nuovo = !t;
+  t = t || {id:newId(), v:v.id, nome:'', tipo:'Vacanza', dal:today(), km0:kmAttuali(v.id) || null, al:'', km1:null, nota:''};
+  const html = `
+    <p class="hint">Un viaggio è un intervallo di date e di chilometri: Garage somma rifornimenti e spese che ci cadono dentro. Lascia vuota la fine se è ancora in corso.</p>
+    <div class="fields">
+      ${field('tNome', 'Nome', t.nome, {full:1, ph:'es. Vacanze in Puglia'})}
+      ${select('tTipo', 'Tipo', TIPI_VIAGGIO, t.tipo, true)}
+      ${field('tDal', 'Data inizio', t.dal, {type:'date'})}
+      ${field('tKm0', 'Km inizio', t.km0 || '', {num:1, int:1})}
+      ${field('tAl', 'Data fine', t.al || '', {type:'date'})}
+      ${field('tKm1', 'Km fine', t.km1 || '', {num:1, int:1, ph:'in corso'})}
+      ${field('tNota', 'Nota', t.nota, {full:1})}
+    </div>
+    ${nuovo ? '' : '<button class="btn btn-danger" id="tDel" type="button">Elimina viaggio</button>'}`;
+  openSheet(nuovo ? 'Nuovo viaggio' : 'Modifica viaggio', html, () => {
+    const nome = val('tNome'), km0 = num(val('tKm0'), true), km1 = num(val('tKm1'), true), dal = val('tDal'), al = val('tAl');
+    if (!nome) { flash('Dai un nome al viaggio'); return false; }
+    if (!dal) { flash('Manca la data di inizio'); return false; }
+    if (al && al < dal) { flash('La fine è prima dell\'inizio'); return false; }
+    if (km1 > 0 && km0 > 0 && km1 < km0) { flash('I km di fine sono meno di quelli di inizio'); return false; }
+    Object.assign(t, {nome, tipo:val('tTipo'), dal, al, km0: km0 > 0 ? km0 : null, km1: km1 > 0 ? km1 : null, nota:val('tNota')});
+    if (nuovo) S.viaggi.push(t);
+    save(); flash(nuovo ? 'Viaggio salvato' : 'Modifiche salvate');
+  });
+  if (!nuovo) armDelete($('#tDel'), 'Tocca di nuovo per eliminare', () => { S.viaggi = S.viaggi.filter(x => x.id !== t.id); save(); flash('Viaggio eliminato'); });
+}
+function reportViaggio(t){
+  const v = S.veicoli.find(x => x.id === t.v) || V(), u = unita(v);
+  const fine = t.al || today();
+  const st = statistiche(t.v, t.dal, fine);
+  const kmFine = t.km1 || (t.al ? null : kmAttuali(t.v));
+  const km = t.km0 && kmFine ? kmFine - t.km0 : st.km;
+  const gg = Math.max(1, days(t.dal, fine) + 1);
+  const tot = st.costoCarb + st.costoSpese;
+  const html = `<div class="summary"><div class="big" style="font-family:var(--f-display)">${esc(t.nome)}</div>
+      <div class="sub">${t.al ? 'Dal ' + fDate(t.dal) + ' al ' + fDate(t.al) : 'In corso dal ' + fDate(t.dal)}</div></div>
+    <div class="hero"><div class="big">${fmt(km)}<small>km</small></div><div class="sub">${gg} giorni · ${fmt(km / gg)} km/giorno</div></div>
+    <div class="costs">
+      <div><span class="h">Carburante</span><span class="v main">${eur(st.costoCarb)}</span><span class="v">${fmt(st.litri, 1)} ${u}</span></div>
+      <div><span class="h">Spese</span><span class="v main">${eur(st.costoSpese)}</span><span class="v">${st.spese.length} ${st.spese.length === 1 ? 'voce' : 'voci'}</span></div>
+      <div class="tot"><span class="h">Totale</span><span class="v main">${eur(tot)}</span><span class="v">${km > 0 ? fmt(tot / km * 100, 2) + ' €/100' : '—'}</span></div>
+    </div>
+    <div class="kv">
+      <div><span>consumo</span><b>${st.l100 ? fmt(st.l100, 2) + ' ' + u + '/100 km' : '—'}<small>${st.l100 ? fmt(st.kml, 2) + ' km/' + u + ' · ' : ''}${st.segs.length} ${st.segs.length === 1 ? 'pieno' : 'pieni'} nel periodo</small></b></div>
+      <div><span>prezzo medio</span><b>${st.prezzoMedio ? fmt(st.prezzoMedio, 3) + ' €/' + u : '—'}</b></div>
+      <div><span>contachilometri</span><b>${t.km0 ? fmt(t.km0) : '—'} → ${kmFine ? fmt(kmFine) : '—'}</b></div>
+      <div><span>costo al giorno</span><b>${eur(tot / gg)}</b></div>
+      ${t.nota ? `<div><span>nota</span><b style="font-family:var(--f-body)">${esc(t.nota)}</b></div>` : ''}
+    </div>
+    ${st.fuel.length || st.spese.length ? `<div class="group"><h3>Nel periodo</h3><div class="ledger">
+      ${[...st.fuel.map(f => ({d:f.data, h:`<div class="row"><div class="l"><b>Rifornimento</b><small>${fDate(f.data)} · ${esc(f.luogo || '')}</small></div><div class="r">${eur(f.totale)}<small>${fmt(f.litri, 2)} ${u}</small></div></div>`})),
+         ...st.spese.map(s => ({d:s.data, h:`<div class="row"><div class="l"><b>${esc(s.titolo)}</b><small>${fDate(s.data)} · ${esc(catInfo(s.cat).n)}</small></div><div class="r">${eur(s.importo)}</div></div>`}))]
+        .sort((a, b) => b.d.localeCompare(a.d)).map(x => x.h).join('')}
+    </div></div>` : ''}
+    <button class="btn btn-ghost" id="tEdit" type="button">Modifica viaggio</button>`;
+  openSheet(t.tipo, html, null);
+  $('#tEdit').onclick = () => formViaggio(t);
+}
+
+/* ---------- veicolo ---------- */
+function formVeicolo(v){
+  const nuovo = !v;
+  v = v || {id:newId(), nome:'', modello:'', targa:'', carburante:'Benzina', serbatoio:null, colore:COLORI[S.veicoli.length % COLORI.length], nota:''};
+  const html = `
+    <div class="fields">
+      ${field('vNome', 'Nome', v.nome, {full:1, ph:'es. Panda'})}
+      ${field('vMod', 'Marca e modello', v.modello, {ph:'es. Fiat Panda 1.2'})}
+      ${field('vTarga', 'Targa', v.targa, {ph:'AB123CD'})}
+      ${select('vCarb', 'Alimentazione', CARBURANTI, v.carburante)}
+      ${field('vSerb', 'Serbatoio (l / kWh)', v.serbatoio || '', {num:1, ph:'es. 37'})}
+      ${field('vNota', 'Nota', v.nota, {full:1})}
+    </div>
+    <div class="group"><h3>Colore</h3><div class="colors" id="vCol">${COLORI.map(c => `<button type="button" style="background:${c}" data-c="${c}" aria-label="Colore" aria-pressed="${c === v.colore}"></button>`).join('')}</div></div>
+    ${nuovo ? '' : `<button class="btn btn-danger" id="vDel" type="button">Elimina veicolo e tutti i suoi dati</button>`}`;
+  let colore = v.colore;
+  openSheet(nuovo ? 'Nuovo veicolo' : 'Modifica veicolo', html, () => {
+    const nome = val('vNome'); if (!nome) { flash('Dai un nome al veicolo'); return false; }
+    const serb = num(val('vSerb'));
+    Object.assign(v, {nome, modello:val('vMod'), targa:val('vTarga').toUpperCase(), carburante:val('vCarb'), serbatoio: serb > 0 ? serb : null, colore, nota:val('vNota')});
+    if (nuovo){ S.veicoli.push(v); S.attivo = v.id; }
+    save(); flash(nuovo ? nome + ' aggiunto' : 'Modifiche salvate');
+    if (nuovo) setTimeout(() => show(tab), 0);
+  });
+  document.querySelectorAll('#vCol button').forEach(b => b.onclick = () => { colore = b.dataset.c; document.querySelectorAll('#vCol button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  if (!nuovo) armDelete($('#vDel'), `Tocca di nuovo: elimini ${v.nome} e tutti i suoi dati`, () => {
+    S.veicoli = S.veicoli.filter(x => x.id !== v.id); S.rif = S.rif.filter(x => x.v !== v.id); S.spese = S.spese.filter(x => x.v !== v.id); S.viaggi = S.viaggi.filter(x => x.v !== v.id);
+    if (S.attivo === v.id) S.attivo = S.veicoli[0] ? S.veicoli[0].id : null;
+    save(); flash('Veicolo eliminato'); show(tab);
+  });
+}
+function riepilogoVeicolo(v){
+  const st = statistiche(v.id, '0000-01-01'), u = unita(v);
+  return {st, l1: st.l100 ? fmt(st.l100, 2) + ' ' + u + '/100 km' : 'consumo non ancora calcolato', km: kmAttuali(v.id)};
+}
+function scegliVeicolo(){
+  const rows = S.veicoli.map(v => {
+    const r = riepilogoVeicolo(v), pr = promemoria(v.id).filter(p => p.scaduto).length;
+    return `<button class="row" type="button" data-v="${v.id}" style="grid-template-columns:auto 1fr auto;align-items:center">
+      <span class="avatar" style="background:${v.colore}">${esc(v.nome.slice(0, 1).toUpperCase())}</span>
+      <span class="l"><b>${esc(v.nome)}${v.id === V().id ? '<span class="tag">attivo</span>' : ''}</b><small>${esc(r.l1)}</small><small>${fmt(r.km)} km · ${eur(r.st.costoCarb)} carburante</small></span>
+      <span class="r">${pr ? `<span class="badge" style="position:static;display:inline-grid">${pr}</span>` : ''}<small>${r.st.km > 0 ? fmt(r.st.costoCarb / r.st.km * 100, 2) + ' €/100 km' : ''}</small><small>${eur(r.st.costoCarb / r.st.giorni)}/giorno</small></span>
+    </button>`;
+  }).join('');
+  openSheet('Veicoli', `<div class="ledger">${rows}</div><button class="btn btn-primary" id="vNew" type="button">Nuovo veicolo</button><button class="btn btn-ghost" id="vEditCur" type="button">Modifica ${esc(V().nome)}</button>`, null);
+  document.querySelectorAll('#shBody [data-v]').forEach(b => b.onclick = () => { S.attivo = b.dataset.v; save(); closeSheet(); render(); });
+  $('#vNew').onclick = () => formVeicolo(null);
+  $('#vEditCur').onclick = () => formVeicolo(V());
+}
+
+/* ================= viste ================= */
+let periodo = 'tutto', cercaCarb = '', cercaSpese = '', filtroSpese = 'tutti', filtroViaggi = 'Tutti';
+try { periodo = localStorage.getItem('garage_periodo') || 'tutto'; } catch(e){}
+
+function render(){
+  const v = V(); if (!v) return;
+  applyTheme();
+  $('#vehAv').textContent = v.nome.slice(0, 1).toUpperCase(); $('#vehAv').style.background = v.colore;
+  $('#vehName').textContent = v.nome;
+  $('#vehSub').textContent = [v.modello, v.targa, fmt(kmAttuali(v.id)) + ' km'].filter(Boolean).join(' · ');
+  const scad = promemoria(v.id).filter(p => p.scaduto).length;
+  $('#badge').hidden = !scad; $('#badge').textContent = scad;
+  ({stat:renderStat, carb:renderCarb, spese:renderSpese, viaggi:renderViaggi, altro:renderAltro})[tab]();
+}
+
+function renderStat(){
+  const v = V(), u = unita(v);
+  const st = statistiche(v.id, inizioPeriodo(periodo));
+  const scad = promemoria(v.id).filter(p => p.scaduto);
+  const tot = st.costoCarb + st.costoSpese;
+  const per100 = x => st.km > 0 ? fmt(x / st.km * 100, 2) + ' €/100 km' : '— €/100 km';
+  const el = $('#v-stat');
+  if (!st.fuelAll.length && !speseDi(v.id).length){
+    el.innerHTML = `<div class="card empty">Ancora nessun dato per ${esc(v.nome)}.<br>Registra il primo pieno con il tasto <b>+</b> in alto: dal secondo pieno vedrai i consumi.</div>`;
+    return;
+  }
+  const autonomia = v.serbatoio && st.l100 ? v.serbatoio / st.l100 * 100 : null;
+  el.innerHTML = `
+    ${scad.length ? `<a class="banner" href="#spese"><span class="state scaduto"></span><span><b>${scad.length === 1 ? esc(scad[0].s.titolo) + ' è scaduto' : scad.length + ' promemoria scaduti'}</b> · ${esc(scad[0].testo.replace('Scaduto da ', 'da '))}</span></a>` : ''}
+    <div id="chartBox"></div>
+    <div class="hero">
+      <div class="big">${st.l100 ? fmt(st.l100, 2) : '—'}<small>${u}/100 km</small></div>
+      <div class="sub">${st.kml ? fmt(st.kml, 2) + ' km/' + u : 'servono almeno due pieni'}</div>
+      <div class="facts">
+        <div><span>Carburante</span><b>${eur(st.costoCarb)}</b></div>
+        <div><span>Prezzo medio</span><b>${st.prezzoMedio ? fmt(st.prezzoMedio, 3) + ' €' : '—'}</b></div>
+        <div><span>Quantità</span><b>${fmt(st.litri, 0)} ${u}</b></div>
+        <div><span>Km percorsi</span><b>${fmt(st.km)}</b></div>
+        <div><span>Km/giorno</span><b>${fmt(st.kmGiorno, 0)}</b></div>
+        <div><span>Km/pieno</span><b>${st.kmPieno ? fmt(st.kmPieno) : '—'}</b></div>
+        ${autonomia ? `<div><span>Autonomia</span><b>~${fmt(autonomia)} km</b></div>` : ''}
+      </div>
+    </div>
+    <div class="seg" id="perSeg">${PERIODI.map(([k, t]) => `<button type="button" data-p="${k}" aria-pressed="${k === periodo}">${t}</button>`).join('')}</div>
+    <div class="costs">
+      <div><span class="h">Carburante</span><span class="v main">${eur(st.costoCarb)}</span><span class="v">${eur(st.costoCarb / st.giorni)}/g</span><span class="v">${per100(st.costoCarb).replace(' km', '')}</span></div>
+      <div><span class="h">Spese</span><span class="v main">${eur(st.costoSpese)}</span><span class="v">${eur(st.costoSpese / st.giorni)}/g</span><span class="v">${per100(st.costoSpese).replace(' km', '')}</span></div>
+      <div class="tot"><span class="h">Totale</span><span class="v main">${eur(tot)}</span><span class="v">${eur(tot / st.giorni)}/g</span><span class="v">${per100(tot).replace(' km', '')}</span></div>
+    </div>
+    <p class="hint" style="margin-top:-10px">Per giorno su ${fmt(st.giorni)} giorni, per 100 km su ${fmt(st.km)} km.</p>
+    <div class="costs">
+      ${Object.entries(GRUPPI).map(([g, n]) => `<div><span class="h">${n}</span><span class="v main">${eur(st.perGruppo[g])}</span><span class="v">${eur(st.perGruppo[g] / st.giorni)}/g</span></div>`).join('')}
+    </div>
+    <div class="group"><h3>Stime</h3>
+      <div class="kv">
+        <div><span>al mese</span><b>${eur(tot / st.giorni * 30.44)}<small>${fmt(st.kmGiorno * 30.44)} km · di cui ${eur(st.costoCarb / st.giorni * 30.44)} carburante</small></b></div>
+        <div><span>all'anno</span><b>${eur(tot / st.giorni * 365.25)}<small>${fmt(st.kmGiorno * 365.25)} km</small></b></div>
+      </div>
+    </div>
+    ${st.segs.length ? `<div class="group"><h3>Record</h3>
+      <div class="kv">
+        <div><span>consumo</span><b>${fmt(st.best, 2)} – ${fmt(st.worst, 2)}<small>migliore e peggiore, ${u}/100 km</small></b></div>
+        <div><span>prezzo</span><b>${fmt(st.pMin, 3)} – ${fmt(st.pMax, 3)} €<small>minimo e massimo al ${u === 'l' ? 'litro' : u}</small></b></div>
+        <div><span>tra due pieni</span><b>${fmt(st.maxPieno)} km<small>distanza massima</small></b></div>
+      </div></div>` : ''}`;
+  document.querySelectorAll('#perSeg button').forEach(b => b.onclick = () => { periodo = b.dataset.p; try { localStorage.setItem('garage_periodo', periodo); } catch(e){} renderStat(); });
+  disegnaGrafico($('#chartBox'), st, u);
+}
+
+/* grafico: sopra il prezzo al litro, sotto il consumo di ogni pieno (barre) con media mobile */
+function disegnaGrafico(box, st, u){
+  const pts = st.fuel;
+  if (pts.length < 2){ box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="chart"><div class="legend"><span><i style="background:var(--price)"></i>€/${u}</span><span><i style="background:var(--bar);height:8px"></i>${u}/100 km</span><span><i style="background:var(--accent)"></i>media mobile</span></div><div class="cv"></div><div class="foot"><span>${fmt(pts[0].km)} km<br>${fShort(pts[0].data)}</span><span>${fmt(pts[pts.length - 1].km)} km<br>${fShort(pts[pts.length - 1].data)}</span></div><div class="tip" hidden></div></div>`;
+  const cv = box.querySelector('.cv'), tip = box.querySelector('.tip');
+  const W = Math.max(260, cv.clientWidth || 340), R = 46, L = 10, pw = W - R - L;
+  const H1 = 64, G = 18, H2 = 140, H = H1 + G + H2 + 4;
+  const n = pts.length, X = i => L + (n === 1 ? pw / 2 : i * pw / (n - 1));
+  const pr = pts.map(p => p.prezzo || null);
+  const pv = pr.filter(Boolean), pmin = Math.min(...pv), pmax = Math.max(...pv), pspan = (pmax - pmin) || pmax * .05 || 1;
+  const PY = y => 14 + (1 - (y - pmin) / pspan) * (H1 - 18);
+  const cons = pts.map(p => st.seg[p.id] ? st.seg[p.id].l100 : null);
+  const cv2 = cons.filter(x => x != null);
+  let svg = '';
+  // prezzo
+  let path = '', area = '';
+  pr.forEach((y, i) => { if (y == null) return; path += (path ? 'L' : 'M') + X(i).toFixed(1) + ' ' + PY(y).toFixed(1); });
+  if (path){ area = path + `L${X(n - 1).toFixed(1)} ${H1}L${X(0).toFixed(1)} ${H1}Z`; svg += `<path d="${area}" fill="var(--price)" opacity=".18"/><path d="${path}" fill="none" stroke="var(--price)" stroke-width="2" stroke-linejoin="round"/>`; }
+  svg += `<text class="lbl" x="${L + 2}" y="12">€/${u}</text><text class="ax" x="${W - 4}" y="${PY(pmax) + 4}" text-anchor="end">${fmt(pmax, 3)}</text><text class="ax" x="${W - 4}" y="${PY(pmin) + 4}" text-anchor="end">${fmt(pmin, 3)}</text>`;
+  svg += `<line x1="${L}" x2="${W - R + 4}" y1="${H1 + G / 2}" y2="${H1 + G / 2}" stroke="var(--line)"/>`;
+  const top2 = H1 + G, bot2 = top2 + H2;
+  if (cv2.length){
+    const avg = st.l100 || cv2.reduce((a, b) => a + b, 0) / cv2.length;
+    let lo = Math.min(...cv2), hi = Math.max(...cv2); const pad2 = (hi - lo) * .15 || hi * .1 || 1; lo = Math.max(0, lo - pad2); hi += pad2 * .5;
+    const CY = y => top2 + 14 + (1 - (y - lo) / (hi - lo)) * (H2 - 16);
+    const bw = Math.max(2, Math.min(14, pw / n * .62));
+    cons.forEach((c, i) => { if (c == null) return; const y = CY(c); svg += `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(bot2 - y).toFixed(1)}" rx="1.5" fill="var(--bar)"/>`; });
+    // media mobile su 5 pieni
+    const idx = cons.map((c, i) => c == null ? null : i).filter(i => i != null);
+    let mm = '';
+    idx.forEach((i, k) => { const w = idx.slice(Math.max(0, k - 4), k + 1).map(j => cons[j]); const m = w.reduce((a, b) => a + b, 0) / w.length; mm += (mm ? 'L' : 'M') + X(i).toFixed(1) + ' ' + CY(m).toFixed(1); });
+    if (idx.length > 1) svg += `<path d="${mm}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="5 3"/>`;
+    svg += `<line x1="${L}" x2="${W - R + 4}" y1="${CY(avg)}" y2="${CY(avg)}" stroke="var(--muted)" stroke-dasharray="2 3" opacity=".7"/>`;
+    svg += `<text class="lbl" x="${L + 2}" y="${top2 + 10}">${u}/100 km</text><text class="ax" x="${W - 4}" y="${CY(avg) + 4}" text-anchor="end">${fmt(avg, 1)}</text><text class="ax" x="${W - 4}" y="${top2 + 14}" text-anchor="end">${fmt(hi, 1)}</text><text class="ax" x="${W - 4}" y="${bot2}" text-anchor="end">${fmt(lo, 1)}</text>`;
+  } else {
+    svg += `<text class="lbl" x="${L + pw / 2}" y="${top2 + H2 / 2}" text-anchor="middle">Il consumo appare dal secondo pieno</text>`;
+  }
+  svg += `<line id="cur" x1="0" x2="0" y1="4" y2="${bot2}" stroke="var(--ink)" stroke-width="1" opacity="0"/>`;
+  cv.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Grafico di prezzo e consumi">${svg}</svg>`;
+  const svgEl = cv.querySelector('svg'), cur = cv.querySelector('#cur');
+  const pick = e => {
+    const r = svgEl.getBoundingClientRect(); const x = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(n - 1, Math.round((x - L) / pw * (n - 1))));
+    const p = pts[i]; cur.setAttribute('x1', X(i)); cur.setAttribute('x2', X(i)); cur.setAttribute('opacity', .6);
+    tip.innerHTML = `<b>${fDate(p.data)}</b><br>${cons[i] != null ? fmt(cons[i], 2) + ' ' + u + '/100 km<br>' : (p.pieno ? 'primo pieno' : 'parziale') + '<br>'}${fmt(p.prezzo, 3)} €/${u}`;
+    tip.hidden = false;
+    const tw = tip.offsetWidth, px = X(i) * r.width / W;
+    tip.style.left = Math.max(6, Math.min(r.width - tw - 6, px - tw / 2)) + 'px';
+  };
+  svgEl.addEventListener('pointerdown', pick); svgEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons) pick(e); });
+  svgEl.addEventListener('pointerleave', () => { tip.hidden = true; cur.setAttribute('opacity', 0); });
+}
+
+function renderCarb(){
+  const v = V(), u = unita(v);
+  const fuel = rifDi(v.id), seg = segmenti(fuel);
+  const q = cercaCarb.toLowerCase();
+  const lista = [...fuel].reverse().filter(f => !q || [f.luogo, f.nota, fDate(f.data), String(f.km)].join(' ').toLowerCase().includes(q));
+  const el = $('#v-carb');
+  el.innerHTML = `<input class="search" id="qCarb" type="search" placeholder="Cerca per data, distributore, km…" value="${esc(cercaCarb)}">
+    <h2>Rifornimenti <span class="hint">${fuel.length}</span></h2>
+    ${lista.length ? `<div class="ledger">${lista.map(f => { const s = seg[f.id]; return `<button class="row fuel" type="button" data-id="${f.id}">
+      <span class="l"><b>${fDate(f.data)}${f.pieno ? '' : '<span class="tag">parziale</span>'}${f.mancato ? '<span class="tag">salto</span>' : ''}</b><small>${f._dist != null ? fmt(f._dist) + ' km percorsi' : 'primo'}</small><small>${fmt(f.km)} km${f.luogo ? ' · ' + esc(f.luogo) : ''}</small></span>
+      <span class="mid">${fmt(f.prezzo, 3)} €<br>${fmt(f.litri, 2)} ${u}</span>
+      <span class="r"><b>${s ? fmt(s.l100, 2) : '—'}</b> <small style="display:inline">${u}/100</small><small>${s ? fmt(s.costo / s.dist * 100, 2) + ' €/100 km' : '&nbsp;'}</small><small>${eur(f.totale)}</small></span>
+    </button>`; }).join('')}</div>` : `<div class="card empty">${fuel.length ? 'Nessun rifornimento trovato.' : 'Nessun rifornimento. Tocca + per registrare il primo pieno.'}</div>`}`;
+  const qi = $('#qCarb'); qi.oninput = () => { cercaCarb = qi.value; const p = qi.selectionStart; renderCarb(); const n = $('#qCarb'); n.focus(); n.setSelectionRange(p, p); };
+  el.querySelectorAll('[data-id]').forEach(b => b.onclick = () => formRif(S.rif.find(x => x.id === b.dataset.id)));
+}
+
+function renderSpese(){
+  const v = V();
+  const prom = promemoria(v.id);
+  const q = cercaSpese.toLowerCase();
+  const lista = speseDi(v.id).filter(s => (filtroSpese === 'tutti' || catInfo(s.cat).g === filtroSpese) && (!q || [s.titolo, s.luogo, s.nota, catInfo(s.cat).n, fDate(s.data)].join(' ').toLowerCase().includes(q)));
+  const tot = lista.reduce((a, s) => a + (s.importo || 0), 0);
+  const el = $('#v-spese');
+  el.innerHTML = `<input class="search" id="qSpese" type="search" placeholder="Cerca tra le spese…" value="${esc(cercaSpese)}">
+    ${prom.length ? `<div class="group"><h3 style="color:var(--bad)">Promemoria (${prom.filter(p => p.scaduto).length})</h3><div class="ledger rem">${prom.map((p, i) => `<button class="row" type="button" data-p="${i}">
+      <span class="state ${p.scaduto ? 'scaduto' : p.presto ? 'presto' : ''}"></span>
+      <span class="l"><b>${esc(p.s.titolo)}</b><small class="${p.scaduto ? 'txt-bad' : p.presto ? 'txt-warn' : ''}">${esc(p.testo)}</small><small>${p.quando.data ? fDate(p.quando.data) + (p.quando.stima ? ' (stima)' : '') : ''}</small></span>
+      <span class="r">${eur(p.s.importo)}</span></button>`).join('')}</div></div>` : ''}
+    <div class="seg" id="fSpese">${[['tutti', 'Tutte'], ...Object.entries(GRUPPI).map(([k, n]) => [k, n.split(' ')[0]])].map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${k === filtroSpese}">${t}</button>`).join('')}</div>
+    <h2>Spese <span class="hint">${lista.length} · ${eur(tot)}</span></h2>
+    ${lista.length ? `<div class="ledger">${lista.map(s => `<button class="row" type="button" data-id="${s.id}">
+      <span class="l"><b>${esc(s.titolo)}${s.rip ? '<span class="tag">ripete</span>' : ''}</b><small>${fDate(s.data)}</small><small>${s.km ? fmt(s.km) + ' km' : '&nbsp;'}</small></span>
+      <span class="r"><b>${eur(s.importo)}</b><small>${esc(s.luogo || '')}</small><small>${esc(catInfo(s.cat).n)}</small></span></button>`).join('')}</div>`
+      : `<div class="card empty">${speseDi(v.id).length ? 'Nessuna spesa trovata.' : 'Nessuna spesa. Tocca + per aggiungere tagliandi, assicurazione, bollo, gomme…'}</div>`}`;
+  const qi = $('#qSpese'); qi.oninput = () => { cercaSpese = qi.value; const p = qi.selectionStart; renderSpese(); const n = $('#qSpese'); n.focus(); n.setSelectionRange(p, p); };
+  el.querySelectorAll('#fSpese button').forEach(b => b.onclick = () => { filtroSpese = b.dataset.f; renderSpese(); });
+  el.querySelectorAll('[data-id]').forEach(b => b.onclick = () => formSpesa(S.spese.find(x => x.id === b.dataset.id)));
+  el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => dettaglioPromemoria(prom[+b.dataset.p]));
+}
+
+function renderViaggi(){
+  const v = V();
+  const tutti = viaggiDi(v.id);
+  const lista = tutti.filter(t => filtroViaggi === 'Tutti' || t.tipo === filtroViaggi);
+  const kmNow = kmAttuali(v.id);
+  const el = $('#v-viaggi');
+  el.innerHTML = `<div class="seg" id="fViaggi">${['Tutti', ...TIPI_VIAGGIO].map(k => `<button type="button" data-f="${k}" aria-pressed="${k === filtroViaggi}">${k}</button>`).join('')}</div>
+    <h2>Viaggi e periodi</h2>
+    ${lista.length ? `<div class="ledger">${lista.map(t => { const kmF = t.km1 || (t.al ? null : kmNow); const km = t.km0 && kmF ? kmF - t.km0 : null; return `<button class="row" type="button" data-id="${t.id}">
+      <span class="l"><b>${esc(t.nome)}<span class="tag">${esc(t.tipo)}</span></b><small>${t.al ? 'Dal ' + fDate(t.dal) + ' al ' + fDate(t.al) : 'In corso dal ' + fDate(t.dal)}</small></span>
+      <span class="r"><b>${km != null ? fmt(km) + ' km' : '—'}</b><small>${durata(days(t.dal, t.al || today()) + 1)}</small></span></button>`; }).join('')}</div>`
+      : `<div class="card empty">${tutti.length ? 'Nessun viaggio di questo tipo.' : 'Nessun viaggio. Con + puoi segnare una vacanza o un periodo (es. "Estate 2026") e vedere quanto hai speso e consumato.'}</div>`}`;
+  el.querySelectorAll('#fViaggi button').forEach(b => b.onclick = () => { filtroViaggi = b.dataset.f; renderViaggi(); });
+  el.querySelectorAll('[data-id]').forEach(b => b.onclick = () => reportViaggio(S.viaggi.find(x => x.id === b.dataset.id)));
+}
+
+function renderAltro(){
+  const el = $('#v-altro');
+  el.innerHTML = `
+    <div class="group"><h3>Veicoli</h3>
+      <div class="ledger">${S.veicoli.map(v => { const r = riepilogoVeicolo(v); return `<button class="row" type="button" data-v="${v.id}" style="grid-template-columns:auto 1fr auto;align-items:center">
+        <span class="avatar" style="background:${v.colore}">${esc(v.nome.slice(0, 1).toUpperCase())}</span>
+        <span class="l"><b>${esc(v.nome)}</b><small>${esc([v.modello, v.carburante, v.targa].filter(Boolean).join(' · '))}</small><small>${esc(r.l1)}</small></span>
+        <span class="r">${fmt(r.km)} km</span></button>`; }).join('')}</div>
+      <button class="btn btn-ghost" id="aNewV" type="button">Aggiungi veicolo</button>
+    </div>
+    <div class="group"><h3>Esporta e importa</h3>
+      <p class="hint">I dati sono salvati solo su questo telefono. Ogni tanto esporta un backup e tienilo su iCloud Drive o Google Drive.</p>
+      <div class="actions"><button class="btn btn-ghost" id="aCsv" type="button">Esporta CSV</button><button class="btn btn-ghost" id="aCsvIn" type="button">Importa CSV</button></div>
+      <div class="actions"><button class="btn btn-ghost" id="aBak" type="button">Backup completo</button><button class="btn btn-ghost" id="aBakIn" type="button">Ripristina backup</button></div>
+      <p class="hint">Il CSV si apre con Excel o Fogli Google (separatore punto e virgola). L'import aggiunge le righe e crea i veicoli che mancano; il ripristino del backup sostituisce tutto.</p>
+    </div>
+    <div class="group"><h3>Aspetto</h3>
+      <div class="seg" id="tema">${[['auto', 'Automatico'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([k, t]) => `<button type="button" data-t="${k}" aria-pressed="${S.tema === k}">${t}</button>`).join('')}</div>
+    </div>
+    <div class="group"><h3>Zona pericolosa</h3>
+      <button class="btn btn-danger" id="aWipe" type="button">Cancella tutti i dati</button>
+    </div>
+    <p class="hint">Garage · ${S.rif.length} rifornimenti, ${S.spese.length} spese, ${S.viaggi.length} viaggi.</p>`;
+  el.querySelectorAll('[data-v]').forEach(b => b.onclick = () => formVeicolo(S.veicoli.find(x => x.id === b.dataset.v)));
+  $('#aNewV').onclick = () => formVeicolo(null);
+  $('#aCsv').onclick = esportaCSV;
+  $('#aCsvIn').onclick = () => scegliFile('csv');
+  $('#aBak').onclick = () => daiFile(`garage-backup-${today()}.json`, JSON.stringify({app:'garage', versione:1, ...S}, null, 1), 'application/json');
+  $('#aBakIn').onclick = () => scegliFile('json');
+  el.querySelectorAll('#tema button').forEach(b => b.onclick = () => { S.tema = b.dataset.t; save(); render(); });
+  const w = $('#aWipe');
+  w.onclick = () => {
+    if (!w.classList.contains('armed')){ w.classList.add('armed'); w.textContent = 'Tocca di nuovo: cancelli tutto, senza ritorno'; return; }
+    const t = S.tema; S = vuoto(); S.tema = t; save(); location.hash = ''; show('stat'); flash('Dati cancellati');
+  };
+}
+
+function applyTheme(){ if (S.tema === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = S.tema; }
+
+/* ================= CSV e backup ================= */
+const COLS = ['tipo', 'veicolo', 'data', 'km', 'litri', 'prezzo_unitario', 'totale', 'pieno', 'salto_precedente', 'descrizione', 'categoria', 'importo', 'ripeti_mesi', 'ripeti_km', 'data_fine', 'km_fine', 'luogo', 'nota', 'id'];
+const cNum = (v, d) => v == null || !isFinite(v) ? '' : String(Math.round(v * 10 ** d) / 10 ** d).replace('.', ',');
+const cStr = s => { s = String(s ?? ''); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+function esportaCSV(){
+  const nomeV = id => (S.veicoli.find(v => v.id === id) || {}).nome || '';
+  const righe = [COLS.join(';')];
+  const put = o => righe.push(COLS.map(c => cStr(o[c])).join(';'));
+  S.rif.slice().sort((a, b) => a.data.localeCompare(b.data)).forEach(r => put({tipo:'rifornimento', veicolo:nomeV(r.v), data:r.data, km:r.km, litri:cNum(r.litri, 3), prezzo_unitario:cNum(r.prezzo, 3), totale:cNum(r.totale, 2), pieno:r.pieno ? 'si' : 'no', salto_precedente:r.mancato ? 'si' : 'no', luogo:r.luogo, nota:r.nota, id:r.id}));
+  S.spese.slice().sort((a, b) => a.data.localeCompare(b.data)).forEach(s => put({tipo:'spesa', veicolo:nomeV(s.v), data:s.data, km:s.km || '', descrizione:s.titolo, categoria:catInfo(s.cat).n, importo:cNum(s.importo, 2), ripeti_mesi:s.rip && s.rip.mesi || '', ripeti_km:s.rip && s.rip.km || '', luogo:s.luogo, nota:s.nota, id:s.id}));
+  S.viaggi.slice().sort((a, b) => a.dal.localeCompare(b.dal)).forEach(t => put({tipo:'viaggio', veicolo:nomeV(t.v), data:t.dal, km:t.km0 || '', descrizione:t.nome, categoria:t.tipo, data_fine:t.al || '', km_fine:t.km1 || '', nota:t.nota, id:t.id}));
+  daiFile(`garage-${today()}.csv`, '﻿' + righe.join('\r\n'), 'text/csv');
+}
+function parseCSV(txt){
+  txt = txt.replace(/^﻿/, '');
+  const first = txt.split(/\r?\n/)[0]; const sep = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < txt.length; i++){
+    const c = txt[i];
+    if (q){ if (c === '"'){ if (txt[i + 1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === sep){ row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && txt[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim()));
+}
+// accetta date 2026-09-16 oppure 16/09/2026
+const cData = s => { s = String(s || '').trim(); let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${pad(+m[2])}-${pad(+m[3])}`; m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/); if (m) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${pad(+m[2])}-${pad(+m[1])}`; return null; };
+function importaCSV(txt){
+  const rows = parseCSV(txt); if (rows.length < 2) throw new Error('Il file è vuoto');
+  const h = rows[0].map(x => x.trim().toLowerCase());
+  const ix = c => h.indexOf(c); if (ix('tipo') < 0 || ix('data') < 0) throw new Error('Mancano le colonne "tipo" e "data": usa un CSV esportato da Garage');
+  const g = (r, c) => { const i = ix(c); return i < 0 ? '' : (r[i] || '').trim(); };
+  let n = 0, salt = 0;
+  const veicolo = nome => {
+    nome = nome || (V() ? V().nome : 'La mia auto');
+    let v = S.veicoli.find(x => x.nome.toLowerCase() === nome.toLowerCase());
+    if (!v){ v = {id:newId(), nome, modello:'', targa:'', carburante:'Benzina', serbatoio:null, colore:COLORI[S.veicoli.length % COLORI.length], nota:''}; S.veicoli.push(v); if (!S.attivo) S.attivo = v.id; }
+    return v.id;
+  };
+  const upsert = (arr, o) => { const i = arr.findIndex(x => x.id === o.id); if (i >= 0) arr[i] = o; else arr.push(o); n++; };
+  const catDa = s => { s = s.toLowerCase(); const c = CATEGORIE.find(c => c.n.toLowerCase() === s || c.id === s); return c ? c.id : 'altro'; };
+  rows.slice(1).forEach(r => {
+    const tipo = g(r, 'tipo').toLowerCase(), data = cData(g(r, 'data')); if (!data){ salt++; return; }
+    const id = g(r, 'id') || newId(), v = veicolo(g(r, 'veicolo')), km = num(g(r, 'km'), true);
+    if (tipo.startsWith('rif')){
+      const litri = num(g(r, 'litri')), tot = num(g(r, 'totale')), pr = num(g(r, 'prezzo_unitario'));
+      if (!(km > 0) || !(litri > 0)){ salt++; return; }
+      upsert(S.rif, {id, v, data, km, litri, prezzo: pr > 0 ? pr : tot / litri, totale: tot > 0 ? tot : litri * pr, pieno: !/^n/i.test(g(r, 'pieno')), mancato: /^s/i.test(g(r, 'salto_precedente')), luogo:g(r, 'luogo'), nota:g(r, 'nota')});
+    } else if (tipo.startsWith('spes')){
+      const mesi = num(g(r, 'ripeti_mesi'), true), rkm = num(g(r, 'ripeti_km'), true);
+      upsert(S.spese, {id, v, data, km: km > 0 ? km : null, titolo:g(r, 'descrizione') || 'Spesa', cat:catDa(g(r, 'categoria')), importo: num(g(r, 'importo')) || 0, luogo:g(r, 'luogo'), nota:g(r, 'nota'), rip: mesi > 0 || rkm > 0 ? {mesi: mesi > 0 ? mesi : null, km: rkm > 0 ? rkm : null} : null});
+    } else if (tipo.startsWith('viag')){
+      const km1 = num(g(r, 'km_fine'), true);
+      upsert(S.viaggi, {id, v, nome:g(r, 'descrizione') || 'Viaggio', tipo: TIPI_VIAGGIO.includes(g(r, 'categoria')) ? g(r, 'categoria') : 'Altro', dal:data, al:cData(g(r, 'data_fine')) || '', km0: km > 0 ? km : null, km1: km1 > 0 ? km1 : null, nota:g(r, 'nota')});
+    } else salt++;
+  });
+  save();
+  return `Importate ${n} righe` + (salt ? `, ${salt} saltate` : '');
+}
+let attesa = null;
+function scegliFile(tipo){ attesa = tipo; const f = $('#fileIn'); f.value = ''; f.click(); }
+$('#fileIn').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  const txt = await file.text();
+  try {
+    if (attesa === 'json' || /^\s*\{/.test(txt)){
+      const d = JSON.parse(txt);
+      if (!d || !Array.isArray(d.veicoli)) throw new Error('Non è un backup di Garage');
+      S = {...vuoto(), veicoli:d.veicoli, attivo:d.attivo, rif:d.rif || [], spese:d.spese || [], viaggi:d.viaggi || [], tema:S.tema};
+      save(); flash(`Backup ripristinato: ${S.veicoli.length} veicoli`);
+    } else flash(importaCSV(txt));
+  } catch(err){ flash('Impossibile leggere il file: ' + err.message); }
+  show(tab);
+};
+async function daiFile(nome, testo, mime){
+  const blob = new Blob([testo], {type:mime});
+  try {
+    const file = new File([blob], nome, {type:mime});
+    if (navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:nome}); return; }
+  } catch(e){ if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  flash('File scaricato: ' + nome);
+}
+
+/* ================= dati di esempio ================= */
+function datiEsempio(){
+  const v = {id:newId(), nome:'Panda', modello:'Fiat Panda 1.2', targa:'GA123RA', carburante:'Benzina', serbatoio:37, colore:COLORI[0], nota:'Esempio: puoi eliminarla da Altro'};
+  S.veicoli.push(v); S.attivo = v.id;
+  let km = 61200, d = addMonths(today(), -20); let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  let prezzo = 1.82;
+  while (d < today()){
+    const tratto = Math.round(380 + rnd() * 190); km += tratto;
+    prezzo = Math.max(1.66, Math.min(2.02, prezzo + (rnd() - .5) * .05));
+    const pieno = rnd() > .1, l = tratto * (5.6 + rnd() * 1.4) / 100 * (pieno ? 1 : .55);
+    S.rif.push({id:newId(), v:v.id, data:d, km, litri:Math.round(l * 100) / 100, prezzo:Math.round(prezzo * 1000) / 1000, totale:Math.round(l * prezzo * 100) / 100, pieno, mancato:false, luogo:['Eni', 'Q8', 'IP', 'Tamoil'][Math.floor(rnd() * 4)], nota:''});
+    d = addDays(d, 9 + Math.floor(rnd() * 9));
+  }
+  const kmAl = data => { const f = S.rif.filter(r => r.data <= data).pop(); return f ? f.km : 61200; };
+  const sp = (mesiFa, titolo, cat, importo, luogo, rip) => { const data = addMonths(today(), -mesiFa); S.spese.push({id:newId(), v:v.id, data, km:kmAl(data), titolo, cat, importo, luogo, nota:'', rip}); };
+  sp(19, 'Tagliando', 'manutenzione', 210, 'Officina Rossi', {mesi:12, km:15000});
+  sp(13, 'Assicurazione', 'assicurazione', 480, 'Compagnia', null);
+  sp(1, 'Assicurazione', 'assicurazione', 455, 'Compagnia', {mesi:12, km:null});
+  sp(17, 'Bollo', 'bollo', 162, 'ACI', {mesi:12, km:null});
+  sp(14, 'Gomme invernali', 'gomme', 360, 'Gommista', null);
+  sp(7, 'Tagliando', 'manutenzione', 235, 'Officina Rossi', {mesi:12, km:15000});
+  sp(11, 'Revisione', 'revisione', 79, 'Centro revisioni', {mesi:24, km:null});
+  sp(3, 'Lavaggio', 'lavaggio', 15, 'Autolavaggio', null);
+  sp(2, 'Pedaggio A14', 'pedaggi', 38.4, 'Autostrada', null);
+  const v0 = addMonths(today(), -2);
+  S.viaggi.push({id:newId(), v:v.id, nome:'Vacanze in Puglia', tipo:'Vacanza', dal:v0, al:addDays(v0, 9), km0:kmAl(v0), km1:kmAl(addDays(v0, 10)), nota:''});
+  const y0 = today().slice(0, 4) + '-01-01';
+  S.viaggi.push({id:newId(), v:v.id, nome:'Anno ' + today().slice(0, 4), tipo:'Periodo', dal:y0, al:'', km0:kmAl(y0), km1:null, nota:''});
+  save();
+}
+
+/* ================= avvio ================= */
+$('#vehBtn').onclick = scegliVeicolo;
+$('#addBtn').onclick = () => tab === 'spese' ? formSpesa(null) : tab === 'viaggi' ? formViaggio(null) : tab === 'altro' ? formVeicolo(null) : formRif(null);
+$('#wAdd').onclick = () => formVeicolo(null);
+$('#wImport').onclick = () => scegliFile('json');
+$('#wDemo').onclick = () => { datiEsempio(); show('stat'); flash('Dati di esempio caricati'); };
+let rT; window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => tab === 'stat' && S.veicoli.length && renderStat(), 150); });
+applyTheme();
+show(location.hash.slice(1));
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
