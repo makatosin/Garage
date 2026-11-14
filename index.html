@@ -195,6 +195,7 @@ dialog#sheet::backdrop{background:rgba(0,0,0,.4)}
     <h1>Garage</h1>
     <p>Tieni il conto di rifornimenti, consumi, manutenzioni e viaggi delle tue auto. I dati restano sul telefono.</p>
     <button class="btn btn-primary" id="wAdd" type="button">Aggiungi la prima auto</button>
+    <button class="btn btn-ghost" id="wLink" type="button">Importa da un link</button>
     <button class="btn btn-ghost" id="wImport" type="button">Ripristina un backup</button>
     <button class="btn btn-ghost" id="wDemo" type="button">Prova con dati di esempio</button>
   </section>
@@ -986,6 +987,7 @@ function renderAltro(){
     <div class="group"><h3>Esporta e importa</h3>
       <p class="hint">I dati sono salvati solo su questo telefono. Ogni tanto fai un backup e tienilo su iCloud Drive o Google Drive. Ultimo backup: <b>${S.ultimoBackup ? fDate(S.ultimoBackup) : 'mai'}</b>.</p>
       <div class="actions"><button class="btn btn-ghost" id="aCsv" type="button">Esporta CSV</button><button class="btn btn-ghost" id="aCsvIn" type="button">Importa CSV</button></div>
+      <button class="btn btn-ghost" id="aLink" type="button">Importa da un link</button>
       <div class="actions"><button class="btn btn-ghost" id="aBak" type="button">Backup completo</button><button class="btn btn-ghost" id="aBakIn" type="button">Ripristina backup</button></div>
       <p class="hint">Il CSV si apre con Excel o Fogli Google (separatore punto e virgola). L'import aggiunge le righe e crea i veicoli che mancano; il ripristino del backup sostituisce tutto.</p>
     </div>
@@ -1002,6 +1004,7 @@ function renderAltro(){
   $('#aCsvIn').onclick = () => scegliFile('csv');
   $('#aBak').onclick = backup;
   $('#aBakIn').onclick = () => scegliFile('json');
+  $('#aLink').onclick = incollaLink;
   el.querySelectorAll('#tema button').forEach(b => b.onclick = () => { S.tema = b.dataset.t; save(); render(); });
   const w = $('#aWipe');
   w.onclick = () => {
@@ -1141,9 +1144,10 @@ function datiEsempio(){
 
 
 /* ================= importa da link (?importa=...) ================= */
-function leggiLink(){
+function leggiLink(testo){
   let raw = null;
-  try { raw = new URLSearchParams(location.search).get('importa'); } catch(e){}
+  if (testo != null){ const m = String(testo).match(/importa=([A-Za-z0-9_\-]+)/); raw = m ? m[1] : String(testo).trim().replace(/\s/g, ''); }
+  else try { raw = new URLSearchParams(location.search).get('importa'); } catch(e){}
   if (!raw) return null;
   try {
     const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
@@ -1152,6 +1156,12 @@ function leggiLink(){
     if (!d || !d.veicolo || !Array.isArray(d.rif)) throw new Error('formato');
     return d;
   } catch(e){ flash('Il link di importazione non è valido'); return null; }
+}
+function incollaLink(){
+  openSheet('Importa da un link', `<p class="say">Copia il link che ti ho mandato (tieni premuto sul link → Copia) e incollalo qui sotto.</p>
+    <textarea class="input" id="lnk" rows="5" placeholder="https://makatosin.github.io/Garage/?importa=..." style="font-size:14px;resize:vertical"></textarea>
+    <button class="btn btn-primary" id="lnkGo" type="button">Continua</button>`, null);
+  $('#lnkGo').onclick = () => { const d = leggiLink(val('lnk')); if (d) importaDaLink(d); };
 }
 function pulisciLink(){ try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} }
 function importaDaLink(d){
@@ -1204,6 +1214,7 @@ $('#vehBtn').onclick = scegliVeicolo;
 $('#addBtn').onclick = () => formRif(null);
 $('#wAdd').onclick = () => formVeicolo(null);
 $('#wImport').onclick = () => scegliFile('json');
+$('#wLink').onclick = incollaLink;
 $('#wDemo').onclick = () => { datiEsempio(); show('stat'); flash('Dati di esempio caricati'); };
 let rT, lastW = innerWidth; window.addEventListener('resize', () => { if (innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rT); rT = setTimeout(() => tab === 'stat' && S.veicoli.length && !sheet.open && renderStat(), 150); });
 applyTheme();
