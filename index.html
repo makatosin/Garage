@@ -199,6 +199,7 @@ dialog#sheet::backdrop{background:rgba(0,0,0,.4)}
     <h1>Garage</h1>
     <p>Tieni il conto di rifornimenti, consumi, manutenzioni e viaggi delle tue auto. I dati restano sul telefono.</p>
     <button class="btn btn-primary" id="wAdd" type="button">Aggiungi la prima auto</button>
+    <button class="btn btn-ghost" id="wSync" type="button">Collega il Foglio Google</button>
     <button class="btn btn-ghost" id="wLink" type="button">Importa da un link</button>
     <button class="btn btn-ghost" id="wImport" type="button">Ripristina un backup</button>
     <button class="btn btn-ghost" id="wDemo" type="button">Prova con dati di esempio</button>
@@ -296,7 +297,103 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || vuoto(); } catch(e){ S = vuot
 S = {...vuoto(), ...S};
 S.spese.forEach(x => { if (!x.tipo) x.tipo = tipoVoce(x); if (x.fatto === undefined) x.fatto = true; });
 const pulito = (k, v) => k === '_dist' ? undefined : v;
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(S, pulito)); } catch(e){ flash('Memoria piena: esporta un backup'); } }
+function salvaLocale(){ try { localStorage.setItem(KEY, JSON.stringify(S, pulito)); } catch(e){ flash('Memoria piena: esporta un backup'); } }
+function save(){ salvaLocale(); programmaSync(); }
+
+/* ================= Foglio Google (sincronizzazione) ================= */
+const SYNC_KEY = 'garage_sync';
+let SY; try { SY = JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch(e){ SY = {}; }  // {url, token, base, rev, ultimo, errore}
+const salvaSY = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify(SY)); } catch(e){} };
+const COLL = ['veicoli', 'rif', 'spese', 'viaggi'];
+const datiSync = st => { const o = {}; COLL.forEach(k => o[k] = JSON.parse(JSON.stringify((st && st[k]) || [], pulito))); return o; };
+// unione a tre vie per record (id): se un record è cambiato qui rispetto all'ultima sincronizzazione vince questo telefono, altrimenti il foglio
+function unisci(base, loc, rem){
+  const out = {};
+  COLL.forEach(k => {
+    const B = new Map(((base && base[k]) || []).map(x => [x.id, JSON.stringify(x)]));
+    const L = new Map((loc[k] || []).map(x => [x.id, x])), R = new Map(((rem && rem[k]) || []).map(x => [x.id, x]));
+    out[k] = [];
+    new Set([...R.keys(), ...L.keys()]).forEach(id => {
+      const l = L.get(id), cambiato = base ? (l ? JSON.stringify(l) : undefined) !== B.get(id) : !!l;
+      const x = cambiato ? l : R.get(id);
+      if (x) out[k].push(x);
+    });
+  });
+  return out;
+}
+async function api(action, payload, lk = SY){
+  let r;
+  try { r = await fetch(lk.url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({token:lk.token, action, payload})}); }
+  catch(e){ throw {net:true}; }
+  let j; try { j = await r.json(); } catch(e){ throw {net:true}; }
+  if (!j.ok) throw {server:true, conflict:!!j.conflict, message:j.error || 'errore'};
+  return j.data;
+}
+let syncing = false, ancora = false, syncT = null;
+function programmaSync(ms = 1500){ if (!SY.url) return; clearTimeout(syncT); syncT = setTimeout(sincronizza, ms); }
+async function sincronizza(manuale){
+  if (!SY.url) return false;
+  if (syncing){ ancora = true; return false; }
+  if (sheet.open && !manuale){ programmaSync(4000); return false; }
+  syncing = true; ancora = false; statoSync();
+  let ok = false;
+  try {
+    for (let i = 0; i < 4; i++){
+      const rem = await api('load');
+      const inizio = datiSync(S);
+      const m = unisci(SY.base, inizio, rem.state);
+      let rev = rem.rev;
+      if (JSON.stringify(m) !== JSON.stringify(datiSync(rem.state))){
+        try { rev = (await api('save', {rev:rem.rev, state:m})).rev; }
+        catch(e){ if (e.conflict) continue; throw e; }
+      }
+      // le modifiche fatte mentre aspettavo il foglio restano
+      const ora = datiSync(S), fin = unisci(inizio, ora, m);
+      const cambia = JSON.stringify(fin) !== JSON.stringify(ora);
+      COLL.forEach(k => S[k] = fin[k]);
+      if (!S.veicoli.some(v => v.id === S.attivo)) S.attivo = S.veicoli[0] ? S.veicoli[0].id : null;
+      SY.base = JSON.parse(JSON.stringify(m)); SY.rev = rev; SY.ultimo = Date.now(); SY.errore = null; salvaSY(); salvaLocale();
+      if (JSON.stringify(fin) !== JSON.stringify(m)) ancora = true;
+      if (cambia && !sheet.open) show(tab);
+      ok = true; break;
+    }
+  } catch(e){
+    SY.errore = e && e.server ? e.message : 'foglio non raggiungibile'; salvaSY();
+    if (e && e.net) programmaSync(30000);
+    if (manuale) flash(e && e.server ? 'Errore dal foglio: ' + e.message : 'Non riesco a raggiungere il foglio');
+  } finally {
+    syncing = false; statoSync();
+    if (ancora) programmaSync(500);
+  }
+  return ok;
+}
+function statoSync(){
+  const b = $('#syncStato'); if (!b) return;
+  b.textContent = syncing ? 'Sincronizzo…' : SY.errore ? 'Non sincronizzato: ' + SY.errore : SY.ultimo ? 'Sincronizzato ' + quando(SY.ultimo) : 'In attesa';
+  b.className = 'hint' + (SY.errore && !syncing ? ' txt-warn' : '');
+}
+const quando = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'adesso' : m < 60 ? m + ' min fa' : new Date(ts).toLocaleString('it-IT', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}); };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SY.url && (!SY.ultimo || Date.now() - SY.ultimo > 20000)) sincronizza(); });
+window.addEventListener('online', () => programmaSync(500));
+function collegaFoglio(){
+  const html = `<p class="hint">Serve una volta sola su ogni telefono o Mac. I due dati li trovi nel tuo Foglio Google "Garage": l'indirizzo dell'app web (Apps Script › Distribuisci) e il codice nel foglio "Sistema".</p>
+    <div class="fields">${field('gUrl', 'Indirizzo dell\'app web (finisce con /exec)', SY.url || '', {full:1, ph:'https://script.google.com/macros/s/…/exec'})}${field('gTok', 'Codice di accesso', SY.token || '', {full:1})}</div>
+    <p class="hint">Dopo il collegamento i dati di qui e quelli del foglio vengono uniti, e da quel momento ogni modifica si salva da sola nel foglio.</p>`;
+  openSheet('Collega il Foglio Google', html, async () => {
+    const url = val('gUrl'), token = val('gTok');
+    if (!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)){ flash('L\'indirizzo deve iniziare con https://script.google.com/ e finire con /exec'); return false; }
+    if (!token){ flash('Manca il codice di accesso (foglio "Sistema")'); return false; }
+    const btn = $('#shSave'); btn.disabled = true; flash('Mi collego al foglio…');
+    try { await api('load', null, {url, token}); }
+    catch(e){ btn.disabled = false; flash(e && e.server ? e.message : 'Non raggiungo il foglio: controlla l\'indirizzo e che l\'accesso sia "Chiunque"'); return false; }
+    SY = {url, token, base:null, rev:0}; salvaSY();
+    closeSheet(); flash('Collegato, sincronizzo…');
+    if (await sincronizza(true)) flash(S.veicoli.length ? 'Collegato al foglio' : 'Collegato: il foglio è vuoto');
+    show(S.veicoli.length ? tab : 'stat');
+  }, 'Collega');
+  setTimeout(() => $('#gUrl').autocapitalize = 'off', 0);
+}
+
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
 const V = () => S.veicoli.find(v => v.id === S.attivo) || S.veicoli[0];
@@ -452,13 +549,14 @@ window.addEventListener('hashchange', () => { show(location.hash.slice(1)); wind
 const sheet = $('#sheet'); let sheetSave = null;
 function openSheet(title, html, onSave, saveLabel){
   $('#shTitle').textContent = title; $('#shBody').innerHTML = html; sheetSave = onSave;
-  $('#shSave').hidden = !onSave;
+  $('#shSave').hidden = !onSave; $('#shSave').disabled = false;
   if (!sheet.open) sheet.showModal();
   sheet.scrollTop = 0;
 }
 function closeSheet(){ if (sheet.open) sheet.close(); sheetSave = null; }
 $('#shClose').onclick = closeSheet;
-$('#shSave').onclick = () => { if (sheetSave && sheetSave() !== false){ closeSheet(); render(); } };
+$('#shSave').onclick = async () => { if (!sheetSave) return; let r = sheetSave(); if (r instanceof Promise){ r = await r; if (r === undefined) return; } if (r !== false){ closeSheet(); render(); } };
+sheet.addEventListener('close', () => { if (SY.url) programmaSync(800); });
 sheet.addEventListener('cancel', () => sheetSave = null);
 function armDelete(btn, label, fn){
   btn.onclick = () => {
@@ -854,7 +952,7 @@ function renderStat(){
   const tanti = S.rif.length + S.spese.length >= 10;
   const vecchio = !S.ultimoBackup || days(S.ultimoBackup, today()) > 30;
   el.innerHTML = `
-    ${tanti && vecchio ? `<a class="banner" href="#altro" style="border-color:var(--line)"><span class="state presto"></span><span>${S.ultimoBackup ? 'L\'ultimo backup è di ' + fa(S.ultimoBackup) : 'Non hai ancora fatto un backup'}: fallo da <b>Altro</b>, così non perdi i dati se cambi telefono.</span></a>` : ''}
+    ${tanti && vecchio && !SY.url ? `<a class="banner" href="#altro" style="border-color:var(--line)"><span class="state presto"></span><span>${S.ultimoBackup ? 'L\'ultimo backup è di ' + fa(S.ultimoBackup) : 'Non hai ancora fatto un backup'}: fallo da <b>Altro</b>, così non perdi i dati se cambi telefono.</span></a>` : ''}
     ${scad.length ? `<a class="banner" href="#spese"><span class="state scaduto"></span><span><b>${scad.length === 1 ? esc(scad[0].s.titolo) + ' è scaduto' : scad.length + ' scadenze superate'}</b> · ${esc(scad[0].testo.replace('Scaduto da ', 'da '))}</span></a>` : ''}
     ${presto.length ? `<a class="banner" href="#spese" style="border-color:var(--warn)"><span class="state presto"></span><span><b>${presto.length === 1 ? esc(presto[0].s.titolo) : presto.length + ' scadenze in arrivo'}</b> · ${esc(presto[0].testo.toLowerCase())}</span></a>` : ''}
     <div class="seg" id="perSeg">${PERIODI.map(([k, t]) => `<button type="button" data-p="${k}" aria-pressed="${k === periodo}">${t}</button>`).join('')}</div>
@@ -1045,8 +1143,14 @@ function renderAltro(){
         <span class="r">${fmt(r.km)} km</span></button>`; }).join('')}</div>
       <button class="btn btn-ghost" id="aNewV" type="button">Aggiungi veicolo</button>
     </div>
+    <div class="group"><h3>Foglio Google</h3>
+      ${SY.url ? `<p class="hint" id="syncStato"></p>
+      <div class="actions"><button class="btn btn-ghost" id="gOra" type="button">Sincronizza ora</button><button class="btn btn-ghost" id="gStop" type="button">Scollega</button></div>`
+      : `<p class="hint">Collega un Foglio Google: i dati si salvano lì da soli e li ritrovi uguali su iPhone e Mac.</p>
+      <button class="btn btn-primary" id="gColl" type="button">Collega Foglio Google</button>`}
+    </div>
     <div class="group"><h3>Esporta e importa</h3>
-      <p class="hint">I dati sono salvati solo su questo telefono. Ogni tanto fai un backup e tienilo su iCloud Drive o Google Drive. Ultimo backup: <b>${S.ultimoBackup ? fDate(S.ultimoBackup) : 'mai'}</b>.</p>
+      <p class="hint">${SY.url ? 'I dati si salvano da soli anche nel Foglio Google: il backup qui sotto è facoltativo.' : `I dati sono salvati solo su questo dispositivo. Collega un Foglio Google oppure ogni tanto fai un backup. Ultimo backup: <b>${S.ultimoBackup ? fDate(S.ultimoBackup) : 'mai'}</b>.`}</p>
       <div class="actions"><button class="btn btn-ghost" id="aCsv" type="button">Esporta CSV</button><button class="btn btn-ghost" id="aCsvIn" type="button">Importa CSV</button></div>
       <button class="btn btn-ghost" id="aLink" type="button">Importa da un link</button>
       <div class="actions"><button class="btn btn-ghost" id="aBak" type="button">Backup completo</button><button class="btn btn-ghost" id="aBakIn" type="button">Ripristina backup</button></div>
@@ -1066,10 +1170,14 @@ function renderAltro(){
   $('#aBak').onclick = backup;
   $('#aBakIn').onclick = () => scegliFile('json');
   $('#aLink').onclick = incollaLink;
+  if ($('#gColl')) $('#gColl').onclick = collegaFoglio;
+  if ($('#gOra')) $('#gOra').onclick = async () => { if (await sincronizza(true)) flash('Sincronizzato'); };
+  if ($('#gStop')) armDelete($('#gStop'), 'Tocca di nuovo per scollegare', () => { SY = {}; salvaSY(); flash('Scollegato: i dati restano qui'); render(); });
+  statoSync();
   el.querySelectorAll('#tema button').forEach(b => b.onclick = () => { S.tema = b.dataset.t; save(); render(); });
   const w = $('#aWipe');
   w.onclick = () => {
-    if (!w.classList.contains('armed')){ w.classList.add('armed'); w.textContent = 'Tocca di nuovo: cancelli tutto, senza ritorno'; return; }
+    if (!w.classList.contains('armed')){ w.classList.add('armed'); w.textContent = SY.url ? 'Tocca di nuovo: cancelli tutto, anche dal foglio' : 'Tocca di nuovo: cancelli tutto, senza ritorno'; return; }
     const t = S.tema; S = vuoto(); S.tema = t; save(); location.hash = ''; show('stat'); flash('Dati cancellati');
   };
 }
@@ -1279,11 +1387,13 @@ $('#addBtn').onclick = () => formRif(null);
 $('#wAdd').onclick = () => formVeicolo(null);
 $('#wImport').onclick = () => scegliFile('json');
 $('#wLink').onclick = incollaLink;
+$('#wSync').onclick = collegaFoglio;
 $('#wDemo').onclick = () => { datiEsempio(); show('stat'); flash('Dati di esempio caricati'); };
 let rT, lastW = innerWidth; window.addEventListener('resize', () => { if (innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rT); rT = setTimeout(() => tab === 'stat' && S.veicoli.length && !sheet.open && renderStat(), 150); });
 applyTheme();
 show(location.hash.slice(1));
 { const dl = leggiLink(); if (dl) importaDaLink(dl); }
+if (SY.url) sincronizza();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
