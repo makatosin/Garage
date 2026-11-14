@@ -197,7 +197,8 @@ dialog#sheet::backdrop{background:rgba(0,0,0,.4)}
   <section id="v-welcome" class="welcome" hidden>
     <img class="logo" src="icon-192.png" alt="">
     <h1>Garage</h1>
-    <p>Tieni il conto di rifornimenti, consumi, manutenzioni e viaggi delle tue auto. I dati restano sul telefono.</p>
+    <p>Tieni il conto di rifornimenti, consumi, manutenzioni e viaggi delle tue auto.</p>
+    <p class="hint" id="wStato" hidden></p>
     <button class="btn btn-primary" id="wAdd" type="button">Aggiungi la prima auto</button>
     <button class="btn btn-ghost" id="wSync" type="button">Collega il Foglio Google</button>
     <button class="btn btn-ghost" id="wLink" type="button">Importa da un link</button>
@@ -541,7 +542,16 @@ function show(v){
   if (!VIEWS.includes(v)) v = 'stat';
   tab = v;
   VIEWS.forEach(x => { $('#v-' + x).hidden = !has || x !== v; const a = document.querySelector(`[data-tab="${x}"]`); if (a) a.setAttribute('aria-current', x === v || (x === 'altro' && v === 'viaggi') ? 'page' : 'false'); });
-  if (has) render();
+  if (has) render(); else welcomeSync();
+}
+let wPoll = null;
+function welcomeSync(){
+  const c = !!SY.url;
+  $('#wStato').hidden = !c;
+  if (c) $('#wStato').innerHTML = '<b>Collegato al Foglio Google.</b> Il foglio per ora è vuoto: collega anche l\'altro dispositivo che ha i dati, poi qui compaiono da soli.';
+  $('#wSync').textContent = c ? 'Sincronizza ora' : 'Collega il Foglio Google';
+  clearInterval(wPoll);
+  if (c) wPoll = setInterval(() => { if (S.veicoli.length || !SY.url){ clearInterval(wPoll); return; } if (document.visibilityState === 'visible') sincronizza(); }, 15000);
 }
 window.addEventListener('hashchange', () => { show(location.hash.slice(1)); window.scrollTo(0, 0); });
 
@@ -1387,7 +1397,7 @@ $('#addBtn').onclick = () => formRif(null);
 $('#wAdd').onclick = () => formVeicolo(null);
 $('#wImport').onclick = () => scegliFile('json');
 $('#wLink').onclick = incollaLink;
-$('#wSync').onclick = collegaFoglio;
+$('#wSync').onclick = async () => { if (!SY.url) return collegaFoglio(); await sincronizza(true); if (S.veicoli.length) show('stat'); else flash('Il foglio è ancora vuoto'); };
 $('#wDemo').onclick = () => { datiEsempio(); show('stat'); flash('Dati di esempio caricati'); };
 let rT, lastW = innerWidth; window.addEventListener('resize', () => { if (innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rT); rT = setTimeout(() => tab === 'stat' && S.veicoli.length && !sheet.open && renderStat(), 150); });
 applyTheme();
