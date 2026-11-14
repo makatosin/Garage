@@ -333,7 +333,7 @@ function statistiche(vid, da, a = '9999-12-31'){
   const spese = S.spese.filter(s => s.v === vid && dentro(s.data));
   // punti (data, km) di tutto ciò che ha un contachilometri
   const punti = [];
-  S.rif.forEach(r => r.v === vid && r.km > 0 && punti.push([r.data, r.km]));
+  S.rif.forEach(r => r.v === vid && r.km >= 0 && punti.push([r.data, r.km]));
   S.spese.forEach(r => r.v === vid && r.km > 0 && punti.push([r.data, r.km]));
   S.viaggi.forEach(r => { if (r.v !== vid) return; if (r.km0 > 0) punti.push([r.dal, r.km0]); if (r.al && r.km1 > 0) punti.push([r.al, r.km1]); });
   punti.sort((x, y) => x[0].localeCompare(y[0]) || x[1] - y[1]);
@@ -443,47 +443,69 @@ function formRif(r){
   const v = V(), u = unita(v), fuel = rifDi(v.id);
   const nuovo = !r;
   const prev = fuel.filter(f => !r || f.id !== r.id);
+  // il rifornimento che viene prima di questo (per i nuovi: l'ultimo registrato)
+  const precDi = km => { const p = prev.filter(f => km == null || f.km <= km); return p[p.length - 1]; };
   const ultimo = prev[prev.length - 1];
-  r = r || {id:newId(), v:v.id, data:today(), km:null, litri:null, prezzo:ultimo ? ultimo.prezzo : null, totale:null, pieno:true, mancato:false, luogo:'', nota:''};
+  // prezzo proposto: media degli ultimi 3 rifornimenti
+  const recenti = prev.filter(f => f.prezzo > 0).slice(-3);
+  const prezzoMedio = recenti.length ? recenti.reduce((a, f) => a + f.prezzo, 0) / recenti.length : null;
+  r = r || {id:newId(), v:v.id, data:today(), km:null, litri:null, prezzo:prezzoMedio ? Math.round(prezzoMedio * 1000) / 1000 : null, totale:null, pieno:true, mancato:false, luogo:'', nota:''};
+  const p0 = nuovo ? ultimo : precDi(r.km);
+  const baseKm = p0 ? p0.km : 0;
+  const trip0 = !nuovo && r.km != null ? r.km - baseKm : null;
   const seg = segmenti(fuel)[r.id];
   let top = '';
   if (!nuovo){
-    const vicini = fuel.indexOf(fuel.find(f => f.id === r.id));
     top = `<div class="summary"><div class="big">${seg ? fmt(seg.l100, 2) + ' ' + u + '/100 km' : r.pieno ? 'Primo pieno' : 'Parziale'}</div>
       <div class="sub">${esc(fDate(r.data))} · ${fa(r.data)}</div></div>
-      <div class="kv">
-        ${seg ? `<div><span>tratto</span><b>${fmt(seg.dist)} km in ${durata(seg.giorni)}<small>${fmt(seg.dist / Math.max(1, seg.giorni))} km/giorno · ${fmt(100 / seg.l100, 2)} km/${u}</small></b></div>
-        <div><span>costo</span><b>${fmt(seg.costo / seg.dist * 100, 2)} €/100 km</b></div>` : ''}
-        ${vicini > 0 ? `<div><span>dal precedente</span><b>${fmt(r.km - fuel[vicini - 1].km)} km</b></div>` : ''}
-      </div><h3>Modifica</h3>`;
+      ${seg ? `<div class="kv"><div><span>tratto</span><b>${fmt(seg.dist)} km in ${durata(seg.giorni)}<small>${fmt(seg.dist / Math.max(1, seg.giorni))} km/giorno · ${fmt(100 / seg.l100, 2)} km/${u}</small></b></div>
+        <div><span>costo</span><b>${fmt(seg.costo / seg.dist * 100, 2)} €/100 km</b></div></div>` : ''}
+      <h3>Modifica</h3>`;
   }
+  const uLab = u === 'l' ? 'litro' : u;
   const html = `${top}
     <div class="fields">
-      ${field('fData', 'Data', r.data, {type:'date'})}
-      ${field('fKm', 'Contachilometri', r.km != null ? r.km : '', {num:1, int:1, ph: ultimo ? 'ultimo ' + fmt(ultimo.km) : 'km'})}
-      ${field('fLitri', u === 'l' ? 'Litri' : u, inNum(r.litri), {num:1, ph:'0,00'})}
-      ${field('fPrezzo', '€/' + (u === 'l' ? 'litro' : u), inNum(r.prezzo), {num:1, ph:'0,000'})}
-      ${field('fTot', 'Totale €', inNum(r.totale, 2), {num:1, ph:'0,00', full:1})}
+      ${field('fTot', 'Quanto hai pagato (€)', inNum(r.totale, 2), {num:1, ph:'0,00', full:1})}
+      ${field('fTrip', p0 ? 'Km fatti dall\'ultimo pieno' : 'Km fatti (primo pieno: lascia vuoto)', trip0 != null && (p0 || trip0 > 0) ? trip0 : '', {num:1, int:1, ph: p0 ? 'es. 326' : '0', full:1})}
+      ${field('fPrezzo', '€/' + uLab, inNum(r.prezzo), {num:1, ph:'0,000', full:1, hint: nuovo && prezzoMedio ? 'media degli ultimi pieni' : ''})}
     </div>
+    <p class="hint" style="margin-top:-8px">Il prezzo è già compilato con la media recente: cambialo solo se oggi era diverso (es. in autostrada).</p>
     <div class="seg" id="fPieno"><button type="button" data-p="1" aria-pressed="${r.pieno}">Pieno</button><button type="button" data-p="0" aria-pressed="${!r.pieno}">Parziale</button></div>
-    <label class="check"><input type="checkbox" id="fMancato" ${r.mancato ? 'checked' : ''}><span>Ho saltato il rifornimento precedente (non l'ho registrato): il consumo di questo tratto non verrà calcolato.</span></label>
-    <div class="fields">
-      ${field('fLuogo', 'Distributore / località', r.luogo, {full:1, list:'dlLuoghi', ph:'es. Q8 via Roma'})}
-      ${field('fNota', 'Nota', r.nota, {full:1})}
+    <button class="btn btn-ghost" id="fMoreBtn" type="button">Data e altri dati <span class="hint" id="fMoreSum"></span></button>
+    <div id="fMore" class="stack" style="gap:16px" hidden>
+      <div class="fields">
+        ${field('fData', 'Data', r.data, {type:'date'})}
+        ${field('fKm', 'Contachilometri totale', r.km != null ? r.km : '', {num:1, int:1, ph:'calcolato da solo'})}
+        ${field('fLitri', u === 'l' ? 'Litri' : u, inNum(r.litri), {num:1, ph:'calcolati da soli'})}
+        ${field('fLuogo', 'Distributore', r.luogo, {list:'dlLuoghi', ph:'es. Q8'})}
+        ${field('fNota', 'Nota', r.nota, {full:1})}
+      </div>
+      <label class="check"><input type="checkbox" id="fMancato" ${r.mancato ? 'checked' : ''}><span>Ho saltato il rifornimento precedente (non l'ho registrato): il consumo di questo tratto non verrà calcolato.</span></label>
     </div>
     <datalist id="dlLuoghi">${[...new Set(S.rif.map(x => x.luogo).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join('')}</datalist>
     ${nuovo ? '' : '<button class="btn btn-danger" id="fDel" type="button">Elimina rifornimento</button>'}`;
-  let pieno = r.pieno;
+  let pieno = r.pieno, tripToccato = false;
   openSheet(nuovo ? 'Nuovo rifornimento' : 'Rifornimento', html, () => {
-    const km = num(val('fKm'), true), litri = num(val('fLitri')), prezzo = num(val('fPrezzo')), tot = num(val('fTot'));
+    let km = num(val('fKm'), true); const litri = num(val('fLitri')), prezzo = num(val('fPrezzo')), tot = num(val('fTot'));
+    if (!p0 && !(km > 0)) km = 0; // il primo pieno fa da punto di partenza
+    if (!(tot > 0)) { flash('Scrivi quanto hai pagato'); return false; }
+    if (!(km >= 0) || (p0 && km <= baseKm)) { flash('Scrivi i km fatti dall\'ultimo pieno'); return false; }
+    if (!(litri > 0)) { flash('Manca il prezzo al ' + uLab); return false; }
     if (!val('fData')) { flash('Manca la data'); return false; }
-    if (!(km > 0)) { flash('Manca il contachilometri'); return false; }
-    if (!(litri > 0) || !(tot > 0)) { flash('Servono quantità e totale (o il prezzo)'); return false; }
+    const vecchioKm = r.km;
     Object.assign(r, {data:val('fData'), km, litri, prezzo: prezzo > 0 ? prezzo : tot / litri, totale:tot, pieno, mancato:$('#fMancato').checked, luogo:val('fLuogo'), nota:val('fNota')});
+    // se hai corretto i km di un rifornimento vecchio, i successivi si spostano insieme (i loro km parziali restano uguali)
+    if (!nuovo && tripToccato && vecchioKm != null && km !== vecchioKm){
+      const d = km - vecchioKm;
+      S.rif.forEach(f => { if (f.v === r.v && f.id !== r.id && f.km > vecchioKm) f.km += d; });
+    }
     if (nuovo) S.rif.push(r);
     save(); flash(nuovo ? 'Rifornimento salvato' : 'Modifiche salvate');
   });
-  // calcolo automatico: il campo toccato meno di recente tra litri, prezzo e totale viene ricalcolato
+  const more = () => { $('#fMore').hidden = false; $('#fMoreBtn').hidden = true; };
+  $('#fMoreBtn').onclick = more;
+  if (!nuovo && (r.luogo || r.nota || r.mancato)) more();
+  // litri, prezzo e totale: si ricalcola quello toccato meno di recente (all'inizio i litri)
   const ord = ['fLitri', 'fPrezzo', 'fTot'];
   const ricalcola = id => {
     ord.splice(ord.indexOf(id), 1); ord.push(id);
@@ -495,16 +517,18 @@ function formRif(r){
     anteprima();
   };
   const anteprima = () => {
-    const km = num(val('fKm'), true), L = num(val('fLitri'));
+    let km = num(val('fKm'), true); if (!p0 && !(km > 0)) km = 0; const L = num(val('fLitri'));
     const bozza = {...r, km, litri:L, totale:num(val('fTot')), pieno, mancato:$('#fMancato').checked, data:val('fData') || today()};
-    const lista = [...prev, bozza].filter(f => f.km > 0).sort((a, b) => a.km - b.km || a.data.localeCompare(b.data));
-    const i = lista.indexOf(bozza);
-    $('#fKm-h').textContent = km > 0 && i > 0 ? '+' + fmt(km - lista[i - 1].km) + ' km' : '';
-    const sg = km > 0 && L > 0 ? segmenti(lista)[bozza.id] : null;
-    $('#fLitri-h').textContent = sg ? fmt(sg.l100, 2) + ' ' + u + '/100 km' : '';
+    const lista = [...prev, bozza].filter(f => f.km >= 0).sort((a, b) => a.km - b.km || a.data.localeCompare(b.data));
+    const sg = km >= 0 && L > 0 ? segmenti(lista)[bozza.id] : null;
+    $('#fTrip-h').textContent = sg ? fmt(sg.l100, 2) + ' ' + u + '/100 km' : '';
+    $('#fTot-h').textContent = L > 0 ? fmt(L, 2) + ' ' + u : '';
+    $('#fMoreSum').textContent = '· ' + (val('fData') === today() ? 'oggi' : fDate(val('fData')));
   };
+  $('#fTrip').addEventListener('input', () => { tripToccato = true; const t = num(val('fTrip'), true); $('#fKm').value = t > 0 ? baseKm + t : ''; anteprima(); });
+  $('#fKm').addEventListener('input', () => { const k = num(val('fKm'), true); $('#fTrip').value = k > 0 ? k - baseKm : ''; anteprima(); });
   ['fLitri', 'fPrezzo', 'fTot'].forEach(id => $('#' + id).addEventListener('input', () => ricalcola(id)));
-  $('#fKm').addEventListener('input', anteprima); $('#fMancato').addEventListener('change', anteprima);
+  $('#fMancato').addEventListener('change', anteprima); $('#fData').addEventListener('change', anteprima);
   document.querySelectorAll('#fPieno button').forEach(b => b.onclick = () => { pieno = b.dataset.p === '1'; document.querySelectorAll('#fPieno button').forEach(x => x.setAttribute('aria-pressed', x === b)); anteprima(); });
   anteprima();
   if (!nuovo) armDelete($('#fDel'), 'Tocca di nuovo per eliminare', () => { S.rif = S.rif.filter(x => x.id !== r.id); save(); flash('Rifornimento eliminato'); });
@@ -956,7 +980,7 @@ function importaCSV(txt){
     const id = g(r, 'id') || newId(), v = veicolo(g(r, 'veicolo')), km = num(g(r, 'km'), true);
     if (tipo.startsWith('rif')){
       const litri = num(g(r, 'litri')), tot = num(g(r, 'totale')), pr = num(g(r, 'prezzo_unitario'));
-      if (!(km > 0) || !(litri > 0)){ salt++; return; }
+      if (!(km >= 0) || !(litri > 0)){ salt++; return; }
       upsert(S.rif, {id, v, data, km, litri, prezzo: pr > 0 ? pr : tot / litri, totale: tot > 0 ? tot : litri * pr, pieno: !/^n/i.test(g(r, 'pieno')), mancato: /^s/i.test(g(r, 'salto_precedente')), luogo:g(r, 'luogo'), nota:g(r, 'nota')});
     } else if (tipo.startsWith('spes')){
       const mesi = num(g(r, 'ripeti_mesi'), true), rkm = num(g(r, 'ripeti_km'), true);
