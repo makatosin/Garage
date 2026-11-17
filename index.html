@@ -374,7 +374,12 @@ function statoSync(){
   b.className = 'hint' + (SY.errore && !syncing ? ' txt-warn' : '');
 }
 const quando = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'adesso' : m < 60 ? m + ' min fa' : new Date(ts).toLocaleString('it-IT', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}); };
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SY.url && (!SY.ultimo || Date.now() - SY.ultimo > 20000)) sincronizza(); });
+// sul Mac la finestra resta aperta: controllo il foglio quando torni sull'app e ogni minuto mentre è visibile
+const syncSeServe = (ms = 20000) => { if (document.visibilityState === 'visible' && SY.url && (!SY.ultimo || Date.now() - SY.ultimo > ms)) sincronizza(); };
+document.addEventListener('visibilitychange', () => syncSeServe());
+window.addEventListener('focus', () => syncSeServe());
+window.addEventListener('pageshow', () => syncSeServe());
+setInterval(() => syncSeServe(55000), 60000);
 window.addEventListener('online', () => programmaSync(500));
 function collegaFoglio(){
   const html = `<p class="hint">Serve una volta sola su ogni telefono o Mac. I due dati li trovi nel tuo Foglio Google "Garage": l'indirizzo dell'app web (Apps Script › Distribuisci) e il codice nel foglio "Sistema".</p>
